@@ -870,40 +870,6 @@ function renderMonthTable(container, year, month) {
 
 // ─── Rendering: Month Summary ────────────────────────────────────────
 
-function formatComparison(current, average, isTemp) {
-    if (average == null) return '';
-    const diff = current - average;
-    if (Math.abs(diff) < 0.05) return '<span class="stat-compare neutral">avg</span>';
-    const sign = diff > 0 ? '+' : '';
-    let formatted;
-    if (isTemp) {
-        formatted = sign + formatTempValue(current).replace(/°$/, '') + '° vs ' + formatTempValue(average);
-        // Simpler: just show the delta
-        const unit = getTempUnit();
-        let delta;
-        if (unit === 'C') {
-            delta = Math.round(diff);
-        } else {
-            delta = Math.round((current * 9/5 + 32) - (average * 9/5 + 32));
-        }
-        formatted = (delta > 0 ? '+' : '') + delta + '°';
-    } else {
-        formatted = (diff > 0 ? '+' : '') + formatPrecipValue(Math.abs(diff));
-        if (diff < 0) formatted = '-' + formatPrecipValue(Math.abs(diff));
-    }
-    const cls = diff > 0 ? 'above' : 'below';
-    return `<span class="stat-compare ${cls}">${formatted}</span>`;
-}
-
-function formatComparisonCount(current, average) {
-    if (average == null) return '';
-    const diff = current - average;
-    if (Math.abs(diff) < 0.5) return '<span class="stat-compare neutral">avg</span>';
-    const sign = diff > 0 ? '+' : '';
-    const cls = diff > 0 ? 'above' : 'below';
-    return `<span class="stat-compare ${cls}">${sign}${Math.round(diff)}</span>`;
-}
-
 function renderMonthSummary(container, year, month) {
     const days = getMonthDays(year, month);
     const withData = days.filter(d => d.high != null);
@@ -920,32 +886,31 @@ function renderMonthSummary(container, year, month) {
     // Get 10-year average for this month if available
     const avg = historicalAverages ? historicalAverages.find(a => a.month === month) : null;
 
-    const precipCompare = avg ? formatComparison(totalPrecip, avg.avgPrecip, false) : '';
-    const rainyCompare = avg ? formatComparisonCount(rainyDays, avg.avgRainyDays) : '';
-    const highCompare = avg ? formatComparison(avgHigh, avg.avgHigh, true) : '';
-    const lowCompare = avg ? formatComparison(avgLow, avg.avgLow, true) : '';
-    const vsLabel = avg ? '<div class="stat-vs">vs 10yr avg</div>' : '';
+    const precipAvg = avg ? `<div class="stat-compare">${formatPrecipValue(avg.avgPrecip)}</div><div class="stat-vs">10yr avg</div>` : '';
+    const rainyAvg = avg ? `<div class="stat-compare">${avg.avgRainyDays}</div><div class="stat-vs">10yr avg</div>` : '';
+    const highAvg = avg ? `<div class="stat-compare">${formatTempValue(avg.avgHigh)}</div><div class="stat-vs">10yr avg</div>` : '';
+    const lowAvg = avg ? `<div class="stat-compare">${formatTempValue(avg.avgLow)}</div><div class="stat-vs">10yr avg</div>` : '';
 
     container.innerHTML = `
         <div class="summary-stat">
             <div class="stat-value">${formatPrecipValue(totalPrecip)}</div>
             <div class="stat-label">Total Precip</div>
-            ${precipCompare}${vsLabel}
+            ${precipAvg}
         </div>
         <div class="summary-stat">
             <div class="stat-value">${rainyDays}</div>
             <div class="stat-label">Rainy Days</div>
-            ${rainyCompare}${vsLabel}
+            ${rainyAvg}
         </div>
         <div class="summary-stat">
             <div class="stat-value">${formatTempValue(avgHigh)}</div>
             <div class="stat-label">Avg High</div>
-            ${highCompare}${vsLabel}
+            ${highAvg}
         </div>
         <div class="summary-stat">
             <div class="stat-value">${formatTempValue(avgLow)}</div>
             <div class="stat-label">Avg Low</div>
-            ${lowCompare}${vsLabel}
+            ${lowAvg}
         </div>
     `;
 }
@@ -1280,6 +1245,18 @@ function initEventListeners() {
         } else {
             addFavorite(currentLocation);
         }
+    });
+
+    // Legend modal
+    const legendModal = document.getElementById('legend-modal');
+    document.getElementById('legend-btn').addEventListener('click', () => {
+        legendModal.classList.remove('hidden');
+    });
+    document.getElementById('close-legend-modal').addEventListener('click', () => {
+        legendModal.classList.add('hidden');
+    });
+    legendModal.addEventListener('click', (e) => {
+        if (e.target === legendModal) legendModal.classList.add('hidden');
     });
 
     // Month navigation (prev/next) - navigate through current display

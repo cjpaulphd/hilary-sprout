@@ -98,6 +98,9 @@
                 </svg>
                 <span>Table</span>
             </button>
+            <button id="legend-btn" class="view-toggle-btn" aria-label="Legend">
+                <span>?</span>
+            </button>
         </div>
 
         <!-- Current Month Section -->
@@ -178,6 +181,7 @@
             <div class="footer-attribution">
                 Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
                 &middot; MIT License
+                &middot; <a href="https://github.com/cjpaulphd/hilary-sprout/issues" target="_blank" rel="noopener">Feedback</a>
             </div>
         </footer>
 
@@ -211,6 +215,55 @@
                     <p>1. Tap the <strong>Share</strong> button <span class="ios-share-icon">&#xFEFF;⬆</span></p>
                     <p>2. Scroll down and tap <strong>Add to Home Screen</strong></p>
                     <p>3. Tap <strong>Add</strong> in the top right</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend Modal -->
+        <div id="legend-modal" class="modal hidden">
+            <div class="modal-content">
+                <button id="close-legend-modal" class="close-btn">&times;</button>
+                <h3>Reading the Calendar</h3>
+                <div class="legend-section">
+                    <h4>Each Day Shows</h4>
+                    <div class="legend-item">
+                        <span class="legend-sample"><span class="hi">72°</span>/<span class="lo">54°</span></span>
+                        <span>Daily high / low temperature</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-sample">☀️ 15%</span>
+                        <span>Average daytime cloud cover</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-sample legend-precip">0.25 in</span>
+                        <span>Total precipitation</span>
+                    </div>
+                </div>
+                <div class="legend-section">
+                    <h4>Cloud Cover Scale</h4>
+                    <div class="legend-item"><span class="legend-sample">☀️ 0–20%</span><span>Clear</span></div>
+                    <div class="legend-item"><span class="legend-sample">⛅ 21–50%</span><span>Partly cloudy</span></div>
+                    <div class="legend-item"><span class="legend-sample">🌥️ 51–80%</span><span>Mostly cloudy</span></div>
+                    <div class="legend-item"><span class="legend-sample">☁️ 81–100%</span><span>Overcast</span></div>
+                </div>
+                <div class="legend-section">
+                    <h4>Cell Highlights</h4>
+                    <div class="legend-item">
+                        <span class="legend-swatch legend-swatch-today"></span>
+                        <span>Green outline = today</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch legend-swatch-forecast"></span>
+                        <span>Dashed border = forecast (not yet recorded)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch legend-swatch-precip"></span>
+                        <span>Light green fill = rain day</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch legend-swatch-precip-heavy"></span>
+                        <span>Darker green fill = heavy rain (&gt;5 mm)</span>
+                    </div>
                 </div>
             </div>
         </div>
