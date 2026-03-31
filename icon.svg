@@ -1,30 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1a2332"/>
-      <stop offset="100%" stop-color="#0d1520"/>
-    </linearGradient>
-    <linearGradient id="w1" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#4fc3f7"/>
-      <stop offset="100%" stop-color="#0288d1"/>
-    </linearGradient>
-    <linearGradient id="w2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#00bcd4"/>
-      <stop offset="100%" stop-color="#00838f"/>
-    </linearGradient>
-  </defs>
-  <!-- Background -->
-  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
-  <!-- First W (left, taller) -->
-  <path d="M72 148 L128 364 L184 220 L240 364 L296 148"
-        fill="none" stroke="url(#w1)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Second W (right, offset lower) -->
-  <path d="M216 180 L272 396 L328 252 L384 396 L440 180"
-        fill="none" stroke="url(#w2)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"
-        opacity="0.85"/>
-  <!-- Rain drops -->
-  <circle cx="130" cy="420" r="7" fill="#4fc3f7" opacity="0.6"/>
-  <circle cx="170" cy="445" r="5" fill="#4fc3f7" opacity="0.4"/>
-  <circle cx="350" cy="438" r="6" fill="#00bcd4" opacity="0.5"/>
-  <circle cx="390" cy="455" r="4" fill="#00bcd4" opacity="0.35"/>
+  <rect width="512" height="512" rx="108" fill="#1a1a1a"/>
+  <!-- Stem -->
+  <path d="M256 420 Q256 280 240 220" fill="none" stroke="#66bb6a" stroke-width="12" stroke-linecap="round"/>
+  <!-- Left leaf -->
+  <path d="M240 280 Q180 240 160 180 Q220 200 240 260" fill="#4caf50" stroke="#388e3c" stroke-width="3"/>
+  <!-- Right leaf -->
+  <path d="M248 240 Q310 200 330 140 Q270 160 248 220" fill="#66bb6a" stroke="#43a047" stroke-width="3"/>
+  <!-- Top sprout leaves -->
+  <path d="M240 220 Q200 160 220 100 Q260 140 250 200" fill="#81c784" stroke="#66bb6a" stroke-width="3"/>
+  <path d="M240 220 Q280 160 260 100 Q220 140 230 200" fill="#a5d6a7" stroke="#81c784" stroke-width="3"/>
+  <!-- Soil line -->
+  <path d="M180 420 Q220 400 256 420 Q290 440 330 420" fill="none" stroke="#8d6e63" stroke-width="10" stroke-linecap="round"/>
 </svg>
