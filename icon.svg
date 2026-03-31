@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a2332"/>
+      <stop offset="100%" stop-color="#0d1520"/>
+    </linearGradient>
+    <linearGradient id="w1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4fc3f7"/>
+      <stop offset="100%" stop-color="#0288d1"/>
+    </linearGradient>
+    <linearGradient id="w2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00bcd4"/>
+      <stop offset="100%" stop-color="#00838f"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- First W (left, taller) -->
+  <path d="M72 148 L128 364 L184 220 L240 364 L296 148"
+        fill="none" stroke="url(#w1)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Second W (right, offset lower) -->
+  <path d="M216 180 L272 396 L328 252 L384 396 L440 180"
+        fill="none" stroke="url(#w2)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"
+        opacity="0.85"/>
+  <!-- Rain drops -->
+  <circle cx="130" cy="420" r="7" fill="#4fc3f7" opacity="0.6"/>
+  <circle cx="170" cy="445" r="5" fill="#4fc3f7" opacity="0.4"/>
+  <circle cx="350" cy="438" r="6" fill="#00bcd4" opacity="0.5"/>
+  <circle cx="390" cy="455" r="4" fill="#00bcd4" opacity="0.35"/>
+</svg>
