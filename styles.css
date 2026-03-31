@@ -966,6 +966,81 @@ body {
     color: var(--accent-green);
 }
 
+/* Legend Modal */
+.legend-section {
+    margin-bottom: 16px;
+}
+
+.legend-section h4 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-green);
+    margin-bottom: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 0.88rem;
+}
+
+.legend-sample {
+    min-width: 80px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.legend-sample .hi {
+    color: #ef9a9a;
+}
+
+.legend-sample .lo {
+    color: #90caf9;
+}
+
+[data-theme="light"] .legend-sample .hi {
+    color: #c62828;
+}
+
+[data-theme="light"] .legend-sample .lo {
+    color: #1565c0;
+}
+
+.legend-precip {
+    color: var(--precip-green);
+    font-weight: 600;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 32px;
+    height: 20px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.legend-swatch-today {
+    background: var(--bg-secondary);
+    outline: 2px solid var(--accent-green);
+    outline-offset: -1px;
+}
+
+.legend-swatch-forecast {
+    background: var(--bg-secondary);
+    border: 2px dashed var(--forecast-border);
+}
+
+.legend-swatch-precip {
+    background: var(--precip-green-bg);
+}
+
+.legend-swatch-precip-heavy {
+    background: var(--precip-green-bg-strong);
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .calendar-cell {

@@ -1247,6 +1247,18 @@ function initEventListeners() {
         }
     });
 
+    // Legend modal
+    const legendModal = document.getElementById('legend-modal');
+    document.getElementById('legend-btn').addEventListener('click', () => {
+        legendModal.classList.remove('hidden');
+    });
+    document.getElementById('close-legend-modal').addEventListener('click', () => {
+        legendModal.classList.add('hidden');
+    });
+    legendModal.addEventListener('click', (e) => {
+        if (e.target === legendModal) legendModal.classList.add('hidden');
+    });
+
     // Month navigation (prev/next) - navigate through current display
     // These scroll to past months or show a toast if at boundary
     document.getElementById('month-prev').addEventListener('click', () => {
