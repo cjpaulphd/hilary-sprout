@@ -564,6 +564,39 @@ body {
     margin-top: 2px;
 }
 
+.summary-stat .stat-compare {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.summary-stat .stat-compare.above {
+    color: #ef9a9a;
+}
+
+.summary-stat .stat-compare.below {
+    color: #90caf9;
+}
+
+.summary-stat .stat-compare.neutral {
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] .summary-stat .stat-compare.above {
+    color: #c62828;
+}
+
+[data-theme="light"] .summary-stat .stat-compare.below {
+    color: #1565c0;
+}
+
+.summary-stat .stat-vs {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    margin-top: 1px;
+}
+
 /* Past Month Collapsed Headers */
 .past-month-toggle {
     display: flex;
@@ -655,6 +688,52 @@ body {
 
 [data-theme="light"] .avg-card .avg-value.hi { color: #c62828; }
 [data-theme="light"] .avg-card .avg-value.lo { color: #1565c0; }
+
+/* Sister App Link */
+.sister-app-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: background 0.15s;
+}
+
+.sister-app-link:hover {
+    background: var(--bg-secondary);
+}
+
+.sister-app-icon {
+    font-size: 1.5em;
+    flex-shrink: 0;
+}
+
+.sister-app-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sister-app-text strong {
+    font-size: 0.95rem;
+    color: var(--accent-green);
+}
+
+.sister-app-text small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.sister-app-arrow {
+    font-size: 1.4em;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
 
 /* Loading */
 .loading {
@@ -871,6 +950,15 @@ body {
     margin-bottom: 6px;
     color: var(--accent-green);
     font-weight: 600;
+}
+
+.footer-brand-link {
+    color: var(--accent-green);
+    text-decoration: none;
+}
+
+.footer-brand-link:hover {
+    text-decoration: underline;
 }
 
 .footer-attribution {
