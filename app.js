@@ -707,6 +707,9 @@ async function loadWeather() {
     fetchHistoricalAverages(lat, lon).then(avgs => {
         historicalAverages = avgs;
         renderHistoricalAverages();
+        // Re-render current month summary now that averages are available
+        const summaryEl2 = document.getElementById('current-month-summary');
+        if (summaryEl2) renderMonthSummary(summaryEl2, now.getFullYear(), now.getMonth());
     }).catch(err => {
         console.error('Error loading averages:', err);
         if (avgEl) avgEl.innerHTML = '<div class="loading">Failed to load historical averages.</div>';
@@ -738,7 +741,9 @@ function updateLastUpdated() {
     const el = document.getElementById('last-updated');
     if (!el) return;
     const now = new Date();
-    el.textContent = `Updated ${now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    const dateStr = now.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    el.textContent = `Updated ${dateStr}, ${timeStr}`;
 }
 
 // ─── Rendering: Calendar Grid ────────────────────────────────────────
@@ -1274,25 +1279,6 @@ function initEventListeners() {
         if (e.target === legendModal) legendModal.classList.add('hidden');
     });
 
-    // Month navigation (prev/next) - navigate through current display
-    // These scroll to past months or show a toast if at boundary
-    document.getElementById('month-prev').addEventListener('click', () => {
-        const pastContainer = document.getElementById('past-months-container');
-        if (pastContainer && pastContainer.children.length > 0) {
-            // Find first collapsed month and expand it, or scroll to first expanded
-            const firstToggle = pastContainer.querySelector('.past-month-toggle:not(.expanded)');
-            if (firstToggle) {
-                firstToggle.click();
-                firstToggle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-                pastContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-    });
-
-    document.getElementById('month-next').addEventListener('click', () => {
-        showToast('Forecast data only available for current week');
-    });
 }
 
 // ─── Service Worker ──────────────────────────────────────────────────
