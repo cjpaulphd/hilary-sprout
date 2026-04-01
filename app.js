@@ -769,7 +769,7 @@ function renderMonthGrid(container, year, month) {
         if (!hasData) cls += ' empty-data';
         if (isToday) cls += ' today';
         if (isForecast) cls += ' forecast';
-        if (hasPrecip) cls += heavyPrecip ? ' precip-day-heavy' : ' precip-day';
+        if (hasPrecip && !isForecast) cls += heavyPrecip ? ' precip-day-heavy' : ' precip-day';
 
         html += `<div class="${cls}">`;
         const dayNum = parseDate(day.date).getDate();
@@ -835,7 +835,7 @@ function renderMonthTable(container, year, month) {
         let cls = '';
         if (isToday) cls += ' today-row';
         if (day.isForecast) cls += ' forecast-row';
-        if (hasPrecip) cls += heavyPrecip ? ' precip-row-heavy' : ' precip-row';
+        if (hasPrecip && !day.isForecast) cls += heavyPrecip ? ' precip-row-heavy' : ' precip-row';
 
         const d = parseDate(day.date);
         const dateLabel = `${DAY_NAMES[d.getDay()]} ${d.getDate()}`;
@@ -878,8 +878,9 @@ function renderMonthSummary(container, year, month) {
         return;
     }
 
-    const totalPrecip = withData.reduce((sum, d) => sum + (d.precip || 0), 0);
-    const rainyDays = withData.filter(d => d.precip > 0).length;
+    const actualDays = withData.filter(d => !d.isForecast);
+    const totalPrecip = actualDays.reduce((sum, d) => sum + (d.precip || 0), 0);
+    const rainyDays = actualDays.filter(d => d.precip > 0).length;
     const avgHigh = withData.reduce((sum, d) => sum + d.high, 0) / withData.length;
     const avgLow = withData.reduce((sum, d) => sum + d.low, 0) / withData.length;
 

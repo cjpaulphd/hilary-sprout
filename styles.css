@@ -408,12 +408,19 @@ body {
 }
 
 .calendar-cell.today {
-    outline: 2px solid var(--accent-green);
+    outline: 3px solid var(--accent-green);
     outline-offset: -1px;
 }
 
 .calendar-cell.forecast {
-    border: 1px dashed var(--forecast-border);
+    outline: 2px dotted var(--forecast-border);
+    outline-offset: -2px;
+    font-style: italic;
+}
+
+.calendar-cell.today.forecast {
+    outline: 3px solid var(--accent-green);
+    outline-offset: -1px;
 }
 
 .calendar-cell.precip-day {
@@ -501,12 +508,19 @@ body {
 }
 
 .data-table tr.today-row {
-    outline: 2px solid var(--accent-green);
+    outline: 3px solid var(--accent-green);
     outline-offset: -1px;
 }
 
 .data-table tr.forecast-row {
-    border-left: 3px solid var(--forecast-border);
+    outline: 2px dotted var(--forecast-border);
+    outline-offset: -2px;
+    font-style: italic;
+}
+
+.data-table tr.today-row.forecast-row {
+    outline: 3px solid var(--accent-green);
+    outline-offset: -1px;
 }
 
 .data-table tr.precip-row {
@@ -1027,13 +1041,14 @@ body {
 
 .legend-swatch-today {
     background: var(--bg-secondary);
-    outline: 2px solid var(--accent-green);
+    outline: 3px solid var(--accent-green);
     outline-offset: -1px;
 }
 
 .legend-swatch-forecast {
     background: var(--bg-secondary);
-    border: 2px dashed var(--forecast-border);
+    outline: 2px dotted var(--forecast-border);
+    outline-offset: -2px;
 }
 
 .legend-swatch-precip {
