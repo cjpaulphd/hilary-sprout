@@ -99,13 +99,9 @@ body {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
     min-width: 0;
-}
-
-.location-icon {
-    font-size: 1.1em;
-    flex-shrink: 0;
+    cursor: pointer;
 }
 
 #location-name {
@@ -114,6 +110,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: center;
 }
 
 .favorite-btn {

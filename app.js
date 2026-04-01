@@ -1239,6 +1239,20 @@ function initEventListeners() {
         }
     });
 
+    // Location bar - click to open search
+    const locationBar = document.getElementById('location-bar');
+    locationBar.addEventListener('click', () => {
+        document.getElementById('location-modal').classList.remove('hidden');
+        document.getElementById('location-input').focus();
+    });
+    locationBar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            document.getElementById('location-modal').classList.remove('hidden');
+            document.getElementById('location-input').focus();
+        }
+    });
+
     // Favorite button
     document.getElementById('favorite-btn').addEventListener('click', () => {
         if (isFavorite(currentLocation)) {
