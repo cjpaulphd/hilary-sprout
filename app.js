@@ -198,20 +198,21 @@ function renderFavoritesList() {
 
     list.innerHTML = favorites.map((fav, i) => `
         <div class="favorite-item" draggable="true" data-index="${i}">
+            <span class="drag-handle" title="Drag to reorder">&#x2807;</span>
             <span class="fav-name">${fav.name}</span>
             <div class="fav-actions">
-                <button class="fav-sort-btn fav-up" data-index="${i}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>&#x25B2;</button>
-                <button class="fav-sort-btn fav-down" data-index="${i}" aria-label="Move down" ${i === favorites.length - 1 ? 'disabled' : ''}>&#x25BC;</button>
                 <button class="fav-edit" data-index="${i}" aria-label="Edit name">&#x270E;</button>
                 <button class="fav-remove" data-index="${i}" aria-label="Remove">&times;</button>
             </div>
         </div>
     `).join('');
 
+    const items = list.querySelectorAll('.favorite-item');
+
     // Click to select
-    list.querySelectorAll('.favorite-item').forEach(item => {
+    items.forEach(item => {
         item.addEventListener('click', (e) => {
-            if (e.target.closest('.fav-actions')) return;
+            if (e.target.closest('.fav-actions') || e.target.closest('.drag-handle')) return;
             const idx = parseInt(item.dataset.index);
             const fav = favorites[idx];
             selectLocation({ name: fav.name.split(',')[0], admin1: fav.name.includes(',') ? fav.name.split(',').slice(1).join(',').trim() : '', latitude: fav.latitude, longitude: fav.longitude });
@@ -228,7 +229,7 @@ function renderFavoritesList() {
         });
     });
 
-    // Edit buttons
+    // Edit buttons — inline rename
     list.querySelectorAll('.fav-edit').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -237,7 +238,6 @@ function renderFavoritesList() {
             const nameSpan = item.querySelector('.fav-name');
             const currentName = favorites[idx].name;
 
-            // Replace name with input
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'fav-edit-input';
@@ -246,7 +246,6 @@ function renderFavoritesList() {
             input.focus();
             input.select();
 
-            // Hide actions, show save/cancel
             const actions = item.querySelector('.fav-actions');
             actions.innerHTML = `
                 <button class="fav-save" aria-label="Save">&#x2713;</button>
@@ -259,7 +258,6 @@ function renderFavoritesList() {
                     const favs = getFavorites();
                     favs[idx].name = newName;
                     saveFavorites(favs);
-                    // Update location display if this is the current location
                     if (locationsMatch(favs[idx], currentLocation)) {
                         currentLocation.name = newName;
                         updateLocationDisplay();
@@ -269,9 +267,7 @@ function renderFavoritesList() {
                 renderFavoritesList();
             }
 
-            function cancel() {
-                renderFavoritesList();
-            }
+            function cancel() { renderFavoritesList(); }
 
             actions.querySelector('.fav-save').addEventListener('click', (e) => { e.stopPropagation(); saveName(); });
             actions.querySelector('.fav-cancel').addEventListener('click', (e) => { e.stopPropagation(); cancel(); });
@@ -282,36 +278,9 @@ function renderFavoritesList() {
         });
     });
 
-    // Sort up/down buttons
-    list.querySelectorAll('.fav-up').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(btn.dataset.index);
-            if (idx > 0) {
-                const favs = getFavorites();
-                [favs[idx - 1], favs[idx]] = [favs[idx], favs[idx - 1]];
-                saveFavorites(favs);
-                renderFavoritesList();
-            }
-        });
-    });
-
-    list.querySelectorAll('.fav-down').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(btn.dataset.index);
-            const favs = getFavorites();
-            if (idx < favs.length - 1) {
-                [favs[idx], favs[idx + 1]] = [favs[idx + 1], favs[idx]];
-                saveFavorites(favs);
-                renderFavoritesList();
-            }
-        });
-    });
-
-    // Drag and drop reorder
+    // Desktop drag and drop reorder
     let dragIdx = null;
-    list.querySelectorAll('.favorite-item').forEach(item => {
+    items.forEach(item => {
         item.addEventListener('dragstart', (e) => {
             dragIdx = parseInt(item.dataset.index);
             item.classList.add('dragging');
@@ -320,9 +289,16 @@ function renderFavoritesList() {
             item.classList.remove('dragging');
             dragIdx = null;
         });
-        item.addEventListener('dragover', (e) => e.preventDefault());
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => {
+            item.classList.remove('drag-over');
+        });
         item.addEventListener('drop', (e) => {
             e.preventDefault();
+            item.classList.remove('drag-over');
             const dropIdx = parseInt(item.dataset.index);
             if (dragIdx !== null && dragIdx !== dropIdx) {
                 const favs = getFavorites();
@@ -332,6 +308,83 @@ function renderFavoritesList() {
                 renderFavoritesList();
             }
         });
+    });
+
+    // Mobile touch drag and drop reorder (via drag handle)
+    let touchSrcIndex = null;
+    let touchClone = null;
+    let touchItemOffsetY = 0;
+
+    function onTouchMove(e) {
+        if (touchSrcIndex === null) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        touchClone.style.top = (touch.clientY - touchItemOffsetY) + 'px';
+
+        touchClone.style.visibility = 'hidden';
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        touchClone.style.visibility = '';
+
+        items.forEach(i => i.classList.remove('drag-over'));
+        const target = el && el.closest('.favorite-item');
+        if (target && Array.from(items).includes(target)) {
+            target.classList.add('drag-over');
+        }
+    }
+
+    function onTouchEnd(e) {
+        if (touchSrcIndex === null) return;
+        const touch = e.changedTouches[0];
+
+        if (touchClone) { touchClone.remove(); touchClone = null; }
+
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = el && el.closest('.favorite-item');
+        const targetIndex = targetItem ? Array.from(items).indexOf(targetItem) : -1;
+
+        items.forEach(i => i.classList.remove('dragging', 'drag-over'));
+
+        const srcIdx = touchSrcIndex;
+        touchSrcIndex = null;
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+
+        if (targetIndex !== -1 && targetIndex !== srcIdx) {
+            const favs = getFavorites();
+            const [moved] = favs.splice(srcIdx, 1);
+            favs.splice(targetIndex, 0, moved);
+            saveFavorites(favs);
+            renderFavoritesList();
+        }
+    }
+
+    items.forEach((item, index) => {
+        const handle = item.querySelector('.drag-handle');
+        handle.addEventListener('touchstart', (e) => {
+            touchSrcIndex = index;
+            item.classList.add('dragging');
+
+            const touch = e.touches[0];
+            const rect = item.getBoundingClientRect();
+            touchItemOffsetY = touch.clientY - rect.top;
+
+            touchClone = item.cloneNode(true);
+            Object.assign(touchClone.style, {
+                position: 'fixed',
+                left: rect.left + 'px',
+                top: rect.top + 'px',
+                width: rect.width + 'px',
+                opacity: '0.85',
+                pointerEvents: 'none',
+                zIndex: '9999',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                transition: 'none'
+            });
+            document.body.appendChild(touchClone);
+
+            document.addEventListener('touchmove', onTouchMove, { passive: false });
+            document.addEventListener('touchend', onTouchEnd);
+        }, { passive: true });
     });
 }
 

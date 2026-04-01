@@ -233,6 +233,21 @@ body {
     text-overflow: ellipsis;
 }
 
+.drag-handle {
+    cursor: grab;
+    color: var(--text-secondary);
+    font-size: 1.1em;
+    padding: 0 4px;
+    opacity: 0.5;
+    flex-shrink: 0;
+    user-select: none;
+    touch-action: none;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+}
+
 .fav-actions {
     display: flex;
     align-items: center;
@@ -259,28 +274,6 @@ body {
 .favorite-item .fav-save:hover { opacity: 1; color: var(--accent-green); }
 .favorite-item .fav-cancel:hover { opacity: 1; color: #ff6b6b; }
 
-.fav-sort-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 0.6em;
-    cursor: pointer;
-    padding: 1px 4px;
-    opacity: 0.5;
-    border-radius: 4px;
-    line-height: 1;
-}
-
-.fav-sort-btn:hover:not(:disabled) {
-    opacity: 1;
-    color: var(--accent-green);
-}
-
-.fav-sort-btn:disabled {
-    opacity: 0.15;
-    cursor: default;
-}
-
 .fav-edit-input {
     flex: 1;
     padding: 4px 8px;
@@ -298,7 +291,11 @@ body {
 }
 
 .favorite-item.dragging {
-    opacity: 0.5;
+    opacity: 0.4;
+}
+
+.favorite-item.drag-over {
+    border-top: 2px solid var(--accent-green);
 }
 
 .menu-item {
