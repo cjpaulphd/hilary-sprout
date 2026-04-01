@@ -233,23 +233,69 @@ body {
     text-overflow: ellipsis;
 }
 
-.favorite-item .fav-remove {
+.drag-handle {
+    cursor: grab;
+    color: var(--text-secondary);
+    font-size: 1.1em;
+    padding: 0 4px;
+    opacity: 0.5;
+    flex-shrink: 0;
+    user-select: none;
+    touch-action: none;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+}
+
+.fav-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.favorite-item .fav-remove,
+.favorite-item .fav-edit,
+.favorite-item .fav-save,
+.favorite-item .fav-cancel {
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 1.2em;
+    font-size: 1.1em;
     cursor: pointer;
-    padding: 0 4px;
+    padding: 2px 5px;
     opacity: 0.6;
+    border-radius: 4px;
 }
 
-.favorite-item .fav-remove:hover {
-    opacity: 1;
-    color: #ff6b6b;
+.favorite-item .fav-remove:hover { opacity: 1; color: #ff6b6b; }
+.favorite-item .fav-edit:hover { opacity: 1; color: var(--accent-green); }
+.favorite-item .fav-save:hover { opacity: 1; color: var(--accent-green); }
+.favorite-item .fav-cancel:hover { opacity: 1; color: #ff6b6b; }
+
+.fav-edit-input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--accent-green);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    min-width: 0;
+}
+
+.fav-edit-input:focus {
+    outline: none;
+    border-color: var(--accent-green);
 }
 
 .favorite-item.dragging {
-    opacity: 0.5;
+    opacity: 0.4;
+}
+
+.favorite-item.drag-over {
+    border-top: 2px solid var(--accent-green);
 }
 
 .menu-item {
