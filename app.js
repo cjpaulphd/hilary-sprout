@@ -199,14 +199,19 @@ function renderFavoritesList() {
     list.innerHTML = favorites.map((fav, i) => `
         <div class="favorite-item" draggable="true" data-index="${i}">
             <span class="fav-name">${fav.name}</span>
-            <button class="fav-remove" data-index="${i}" aria-label="Remove">&times;</button>
+            <div class="fav-actions">
+                <button class="fav-sort-btn fav-up" data-index="${i}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>&#x25B2;</button>
+                <button class="fav-sort-btn fav-down" data-index="${i}" aria-label="Move down" ${i === favorites.length - 1 ? 'disabled' : ''}>&#x25BC;</button>
+                <button class="fav-edit" data-index="${i}" aria-label="Edit name">&#x270E;</button>
+                <button class="fav-remove" data-index="${i}" aria-label="Remove">&times;</button>
+            </div>
         </div>
     `).join('');
 
     // Click to select
     list.querySelectorAll('.favorite-item').forEach(item => {
         item.addEventListener('click', (e) => {
-            if (e.target.classList.contains('fav-remove')) return;
+            if (e.target.closest('.fav-actions')) return;
             const idx = parseInt(item.dataset.index);
             const fav = favorites[idx];
             selectLocation({ name: fav.name.split(',')[0], admin1: fav.name.includes(',') ? fav.name.split(',').slice(1).join(',').trim() : '', latitude: fav.latitude, longitude: fav.longitude });
@@ -220,6 +225,87 @@ function renderFavoritesList() {
             e.stopPropagation();
             const idx = parseInt(btn.dataset.index);
             removeFavorite(favorites[idx]);
+        });
+    });
+
+    // Edit buttons
+    list.querySelectorAll('.fav-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.index);
+            const item = btn.closest('.favorite-item');
+            const nameSpan = item.querySelector('.fav-name');
+            const currentName = favorites[idx].name;
+
+            // Replace name with input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'fav-edit-input';
+            input.value = currentName;
+            nameSpan.replaceWith(input);
+            input.focus();
+            input.select();
+
+            // Hide actions, show save/cancel
+            const actions = item.querySelector('.fav-actions');
+            actions.innerHTML = `
+                <button class="fav-save" aria-label="Save">&#x2713;</button>
+                <button class="fav-cancel" aria-label="Cancel">&#x2717;</button>
+            `;
+
+            function saveName() {
+                const newName = input.value.trim();
+                if (newName && newName !== currentName) {
+                    const favs = getFavorites();
+                    favs[idx].name = newName;
+                    saveFavorites(favs);
+                    // Update location display if this is the current location
+                    if (locationsMatch(favs[idx], currentLocation)) {
+                        currentLocation.name = newName;
+                        updateLocationDisplay();
+                        saveLastLocation(currentLocation);
+                    }
+                }
+                renderFavoritesList();
+            }
+
+            function cancel() {
+                renderFavoritesList();
+            }
+
+            actions.querySelector('.fav-save').addEventListener('click', (e) => { e.stopPropagation(); saveName(); });
+            actions.querySelector('.fav-cancel').addEventListener('click', (e) => { e.stopPropagation(); cancel(); });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') saveName();
+                if (e.key === 'Escape') cancel();
+            });
+        });
+    });
+
+    // Sort up/down buttons
+    list.querySelectorAll('.fav-up').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.index);
+            if (idx > 0) {
+                const favs = getFavorites();
+                [favs[idx - 1], favs[idx]] = [favs[idx], favs[idx - 1]];
+                saveFavorites(favs);
+                renderFavoritesList();
+            }
+        });
+    });
+
+    list.querySelectorAll('.fav-down').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.index);
+            const favs = getFavorites();
+            if (idx < favs.length - 1) {
+                [favs[idx], favs[idx + 1]] = [favs[idx + 1], favs[idx]];
+                saveFavorites(favs);
+                renderFavoritesList();
+            }
         });
     });
 
