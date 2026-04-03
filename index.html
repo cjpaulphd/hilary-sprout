@@ -104,13 +104,14 @@
 
         <!-- Current Month Section -->
         <section class="month-section" id="current-month-section">
-            <div class="month-header">
+            <button class="current-month-toggle expanded" id="current-month-toggle">
                 <h2 id="current-month-title">Loading...</h2>
-            </div>
-            <div id="current-month-content" class="month-content">
+                <span class="toggle-arrow">&#x25B8;</span>
+            </button>
+            <div id="current-month-content" class="current-month-collapsible visible">
                 <div class="loading">Loading weather data...</div>
             </div>
-            <div id="current-month-summary" class="month-summary"></div>
+            <div id="current-month-summary" class="month-summary current-month-collapsible visible"></div>
         </section>
 
         <!-- Past Months (collapsed) -->
@@ -151,6 +152,10 @@
                 </button>
                 <button id="temp-toggle" class="toggle-btn" aria-label="Toggle temperature unit">
                     <span id="temp-toggle-label">°C</span>
+                </button>
+                <button id="precip-threshold-btn" class="toggle-btn" aria-label="Set rain day threshold">
+                    <span>🌧️</span>
+                    <span id="precip-threshold-label">Any</span>
                 </button>
                 <button id="export-btn" class="toggle-btn" aria-label="Export CSV">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -255,13 +260,27 @@
                     </div>
                     <div class="legend-item">
                         <span class="legend-swatch legend-swatch-precip"></span>
-                        <span>Light green fill = rain day</span>
+                        <span>Light green fill = rain day (above threshold set via 🌧️ button)</span>
                     </div>
                     <div class="legend-item">
                         <span class="legend-swatch legend-swatch-precip-heavy"></span>
                         <span>Darker green fill = heavy rain (&gt;5 mm)</span>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Precipitation Threshold Modal -->
+        <div id="precip-threshold-modal" class="modal hidden">
+            <div class="modal-content modal-content-sm">
+                <button id="close-precip-modal" class="close-btn">&times;</button>
+                <h3>Rain Day Threshold</h3>
+                <p class="modal-hint">Set the minimum precipitation to count as a rainy day. Days at or below this amount won't be highlighted or counted.</p>
+                <div class="precip-threshold-row">
+                    <input type="number" id="precip-threshold-input" min="0" step="0.01" class="precip-threshold-input" placeholder="0">
+                    <span id="precip-threshold-unit" class="precip-threshold-unit">in</span>
+                </div>
+                <button id="precip-threshold-save" class="search-btn precip-threshold-save">Save</button>
             </div>
         </div>
 

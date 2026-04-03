@@ -366,6 +366,50 @@ body {
     margin-bottom: 12px;
 }
 
+/* Current Month Toggle (collapsible) */
+.current-month-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+
+.current-month-toggle h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    min-width: 180px;
+    text-align: center;
+}
+
+.current-month-toggle .toggle-arrow {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+}
+
+.current-month-toggle.expanded .toggle-arrow {
+    transform: rotate(90deg);
+}
+
+.current-month-collapsible {
+    display: none;
+}
+
+.current-month-collapsible.visible {
+    display: block;
+}
+
+.month-summary.current-month-collapsible.visible {
+    display: flex;
+}
+
 .month-header {
     display: flex;
     align-items: center;
@@ -1016,6 +1060,52 @@ body {
     text-decoration: underline;
 }
 
+/* Precipitation Threshold Modal */
+.modal-content-sm {
+    max-width: 320px;
+}
+
+.modal-hint {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    line-height: 1.4;
+}
+
+.precip-threshold-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.precip-threshold-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.precip-threshold-input:focus {
+    outline: none;
+    border-color: var(--accent-green);
+}
+
+.precip-threshold-unit {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    min-width: 24px;
+}
+
+.precip-threshold-save {
+    width: 100%;
+}
+
 /* iOS Install Modal */
 .ios-steps {
     line-height: 2;
@@ -1118,7 +1208,8 @@ body {
         font-size: 0.6rem;
     }
 
-    .month-header h2 {
+    .month-header h2,
+    .current-month-toggle h2 {
         font-size: 0.95rem;
         min-width: 140px;
     }
