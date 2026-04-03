@@ -16,6 +16,7 @@ const FAVORITES_KEY = 'hilarysprout_favorites';
 const TEMP_UNIT_KEY = 'hilarysprout_temp_unit';
 const THEME_KEY = 'hilarysprout_theme';
 const VIEW_MODE_KEY = 'hilarysprout_view_mode';
+const PRECIP_THRESHOLD_KEY = 'hilarysprout_precip_threshold';
 
 // Global state
 let currentLocation = getLastLocation() || DEFAULT_LOCATION;
@@ -71,6 +72,33 @@ function getViewMode() {
 
 function saveViewMode(mode) {
     try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch (e) {}
+}
+
+// Precipitation threshold in mm (0 = any precipitation counts as a rainy day)
+function getPrecipThreshold() {
+    try {
+        const val = localStorage.getItem(PRECIP_THRESHOLD_KEY);
+        if (val !== null) return parseFloat(val);
+    } catch (e) {}
+    return 0;
+}
+
+function savePrecipThreshold(mm) {
+    try { localStorage.setItem(PRECIP_THRESHOLD_KEY, String(mm)); } catch (e) {}
+}
+
+function formatPrecipThreshold() {
+    const mm = getPrecipThreshold();
+    if (mm === 0) return 'Any';
+    const unit = getTempUnit();
+    if (unit === 'C') return mm.toFixed(1) + ' mm';
+    return (mm / 25.4).toFixed(2) + ' in';
+}
+
+function isPrecipDay(precipMm) {
+    if (precipMm == null) return false;
+    const threshold = getPrecipThreshold();
+    return precipMm > threshold;
 }
 
 // ─── Locale Detection ────────────────────────────────────────────────
@@ -457,6 +485,64 @@ function setViewMode(mode) {
     rerenderAll();
 }
 
+// ─── Precipitation Threshold ────────────────────────────────────────
+
+function updatePrecipThresholdUI() {
+    const label = document.getElementById('precip-threshold-label');
+    if (!label) return;
+    label.textContent = formatPrecipThreshold();
+}
+
+function openPrecipThresholdModal() {
+    const modal = document.getElementById('precip-threshold-modal');
+    const input = document.getElementById('precip-threshold-input');
+    const unitLabel = document.getElementById('precip-threshold-unit');
+    if (!modal || !input) return;
+
+    const mm = getPrecipThreshold();
+    const unit = getTempUnit();
+    unitLabel.textContent = unit === 'C' ? 'mm' : 'in';
+    if (mm === 0) {
+        input.value = '0';
+    } else if (unit === 'C') {
+        input.value = mm.toFixed(1);
+    } else {
+        input.value = (mm / 25.4).toFixed(2);
+    }
+
+    modal.classList.remove('hidden');
+    input.focus();
+    input.select();
+}
+
+function savePrecipThresholdFromInput() {
+    const input = document.getElementById('precip-threshold-input');
+    if (!input) return;
+
+    let val = parseFloat(input.value);
+    if (isNaN(val) || val < 0) val = 0;
+
+    // Convert to mm for storage
+    const unit = getTempUnit();
+    const mm = unit === 'C' ? val : val * 25.4;
+
+    savePrecipThreshold(mm);
+    updatePrecipThresholdUI();
+    document.getElementById('precip-threshold-modal').classList.add('hidden');
+
+    // Re-fetch averages since rainy day counts depend on threshold
+    if (historicalAverages) {
+        const { latitude: lat, longitude: lon } = currentLocation;
+        fetchHistoricalAverages(lat, lon).then(avgs => {
+            historicalAverages = avgs;
+            rerenderAll();
+            renderHistoricalAverages();
+        }).catch(() => {});
+    } else {
+        rerenderAll();
+    }
+}
+
 // ─── Location Search / Geocoding ─────────────────────────────────────
 
 const US_STATE_ABBREVS = {
@@ -716,7 +802,7 @@ async function fetchHistoricalAverages(lat, lon) {
         if (hi != null) entry.highs.push(hi);
         if (lo != null) entry.lows.push(lo);
         entry.precip += pr;
-        if (pr > 0) entry.rainyDays++;
+        if (isPrecipDay(pr)) entry.rainyDays++;
     }
 
     // Average across years for each month
@@ -906,14 +992,15 @@ function renderMonthGrid(container, year, month) {
         const hasData = day.high != null;
         const isToday = day.date === today;
         const isForecast = day.isForecast;
-        const hasPrecip = day.precip != null && day.precip > 0;
+        const isRainDay = isPrecipDay(day.precip);
+        const anyPrecip = day.precip != null && day.precip > 0;
         const heavyPrecip = day.precip != null && day.precip > 5;
 
         let cls = 'calendar-cell';
         if (!hasData) cls += ' empty-data';
         if (isToday) cls += ' today';
         if (isForecast) cls += ' forecast';
-        if (hasPrecip && !isForecast) cls += heavyPrecip ? ' precip-day-heavy' : ' precip-day';
+        if (isRainDay && !isForecast) cls += heavyPrecip ? ' precip-day-heavy' : ' precip-day';
 
         html += `<div class="${cls}">`;
         const dayNum = parseDate(day.date).getDate();
@@ -922,7 +1009,7 @@ function renderMonthGrid(container, year, month) {
         if (hasData) {
             html += `<div class="cell-temp"><span class="hi">${formatTempValue(day.high)}</span>/<span class="lo">${formatTempValue(day.low)}</span></div>`;
             html += `<div class="cell-cloud">${formatCloudCover(day.cloud)}</div>`;
-            if (hasPrecip) {
+            if (anyPrecip) {
                 html += `<div class="cell-precip">${formatPrecipValue(day.precip)}</div>`;
             }
         }
@@ -973,13 +1060,14 @@ function renderMonthTable(container, year, month) {
     sortedDays.forEach(day => {
         const hasData = day.high != null;
         const isToday = day.date === today;
-        const hasPrecip = day.precip != null && day.precip > 0;
+        const isRainDay = isPrecipDay(day.precip);
+        const anyPrecip = day.precip != null && day.precip > 0;
         const heavyPrecip = day.precip != null && day.precip > 5;
 
         let cls = '';
         if (isToday) cls += ' today-row';
         if (day.isForecast) cls += ' forecast-row';
-        if (hasPrecip && !day.isForecast) cls += heavyPrecip ? ' precip-row-heavy' : ' precip-row';
+        if (isRainDay && !day.isForecast) cls += heavyPrecip ? ' precip-row-heavy' : ' precip-row';
 
         const d = parseDate(day.date);
         const dateLabel = `${DAY_NAMES[d.getDay()]} ${d.getDate()}`;
@@ -989,7 +1077,7 @@ function renderMonthTable(container, year, month) {
         html += `<td><span class="hi">${hasData ? formatTempValue(day.high) : '—'}</span></td>`;
         html += `<td><span class="lo">${hasData ? formatTempValue(day.low) : '—'}</span></td>`;
         html += `<td>${hasData ? formatCloudCover(day.cloud) : '—'}</td>`;
-        html += `<td>${hasPrecip ? `<span class="precip-val">${formatPrecipValue(day.precip)}</span>` : (hasData ? '0' : '—')}</td>`;
+        html += `<td>${anyPrecip ? `<span class="precip-val">${formatPrecipValue(day.precip)}</span>` : (hasData ? '0' : '—')}</td>`;
         html += '</tr>';
     });
 
@@ -1024,7 +1112,7 @@ function renderMonthSummary(container, year, month) {
 
     const actualDays = withData.filter(d => !d.isForecast);
     const totalPrecip = actualDays.reduce((sum, d) => sum + (d.precip || 0), 0);
-    const rainyDays = actualDays.filter(d => d.precip > 0).length;
+    const rainyDays = actualDays.filter(d => isPrecipDay(d.precip)).length;
     const avgHigh = withData.reduce((sum, d) => sum + d.high, 0) / withData.length;
     const avgLow = withData.reduce((sum, d) => sum + d.low, 0) / withData.length;
 
@@ -1061,6 +1149,21 @@ function renderMonthSummary(container, year, month) {
 }
 
 // ─── Render Current Month ────────────────────────────────────────────
+
+let currentMonthExpanded = true;
+
+function toggleCurrentMonth() {
+    currentMonthExpanded = !currentMonthExpanded;
+    const content = document.getElementById('current-month-content');
+    const summary = document.getElementById('current-month-summary');
+    const arrow = document.querySelector('#current-month-section .toggle-arrow');
+
+    if (content) content.classList.toggle('visible', currentMonthExpanded);
+    if (summary) summary.classList.toggle('visible', currentMonthExpanded);
+    if (arrow) {
+        arrow.parentElement.classList.toggle('expanded', currentMonthExpanded);
+    }
+}
 
 function renderCurrentMonth() {
     const now = new Date();
@@ -1418,6 +1521,19 @@ function initEventListeners() {
         if (e.target === legendModal) legendModal.classList.add('hidden');
     });
 
+    // Precipitation threshold
+    document.getElementById('precip-threshold-btn').addEventListener('click', openPrecipThresholdModal);
+    document.getElementById('precip-threshold-save').addEventListener('click', savePrecipThresholdFromInput);
+    const precipModal = document.getElementById('precip-threshold-modal');
+    document.getElementById('close-precip-modal').addEventListener('click', () => precipModal.classList.add('hidden'));
+    precipModal.addEventListener('click', (e) => { if (e.target === precipModal) precipModal.classList.add('hidden'); });
+    document.getElementById('precip-threshold-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') savePrecipThresholdFromInput();
+    });
+
+    // Current month toggle
+    document.getElementById('current-month-toggle').addEventListener('click', toggleCurrentMonth);
+
 }
 
 // ─── Service Worker ──────────────────────────────────────────────────
@@ -1437,6 +1553,7 @@ function init() {
     updateThemeToggleUI();
     updateTempToggleUI();
     updateViewToggleUI();
+    updatePrecipThresholdUI();
     updateLocationDisplay();
     initEventListeners();
     initInstallButton();
