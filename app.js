@@ -20,6 +20,21 @@ const PRECIP_THRESHOLD_KEY = 'hilarysprout_precip_threshold';
 
 // Global state
 let currentLocation = getLastLocation() || DEFAULT_LOCATION;
+
+// Check for location passed via URL parameters (e.g. from WeatherWonder)
+const urlParams = new URLSearchParams(window.location.search);
+const urlLat = urlParams.get('lat');
+const urlLon = urlParams.get('lon');
+const urlName = urlParams.get('name');
+
+if (urlLat && urlLon) {
+    currentLocation = {
+        name: urlName || 'Selected Location',
+        latitude: parseFloat(urlLat),
+        longitude: parseFloat(urlLon)
+    };
+}
+
 let monthlyData = {};       // keyed by "YYYY-MM", each entry has { days: [...], isForecast: {...} }
 let historicalAverages = null;
 let viewMode = getViewMode(); // 'grid' or 'table'
