@@ -1488,7 +1488,7 @@ function initEventListeners() {
 
     // Share
     document.getElementById('share-btn').addEventListener('click', () => {
-        const url = 'https://cjpaulphd.github.io/hilary-sprout/';
+        const url = 'https://hilary-sprout.weatherwonder.app/';
         const text = 'Hilary\'s Sprout - Gardening Weather Dashboard';
         if (navigator.share) {
             navigator.share({ title: text, url: url }).catch(() => {});
