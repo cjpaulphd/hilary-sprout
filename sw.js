@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hilarysprout-v1';
+const CACHE_NAME = 'hilarysprout-v2';
 const SHELL_ASSETS = [
     './',
     './index.html',

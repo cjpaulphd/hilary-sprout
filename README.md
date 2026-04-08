@@ -2,7 +2,7 @@
 
 A gardening-focused weather dashboard that displays daily temperature, cloud cover, and precipitation in a monthly calendar view to help horticulturalists track growing conditions. No API keys required.
 
-**Live Site:** [cjpaulphd.github.io/hilary-sprout](https://cjpaulphd.github.io/hilary-sprout/)
+**Live Site:** [hilary-sprout.weatherwonder.app](https://hilary-sprout.weatherwonder.app/)
 
 ## Features
 
@@ -35,7 +35,7 @@ A gardening-focused weather dashboard that displays daily temperature, cloud cov
 
 ### Sister App
 
-- **[WeatherWonder](https://cjpaulphd.github.io/weatherwonder/)** — Companion app for detailed forecasts, live radar, NWS alerts, and astronomical data
+- **[WeatherWonder](https://www.weatherwonder.app/)** — Companion app for detailed forecasts, live radar, NWS alerts, and astronomical data
 
 ## Data Sources
 
@@ -73,7 +73,7 @@ This project is deployed via GitHub Pages from the `main` branch:
 
 1. Push changes to `main`
 2. In GitHub repo Settings > Pages, set source to "Deploy from a branch" > `main` > `/ (root)`
-3. Site is live at `https://<username>.github.io/hilary-sprout/`
+3. Site is live at `https://hilary-sprout.weatherwonder.app/`
 
 ## Project Structure
 
