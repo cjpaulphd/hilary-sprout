@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#222222"/>
+    </linearGradient>
+    <!-- Green accent gradient -->
+    <linearGradient id="greenGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#66bb6a" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#388e3c" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Bottom accent gradient -->
+    <linearGradient id="bottomAccent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#66bb6a" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#66bb6a" stop-opacity="0.08"/>
+    </linearGradient>
+    <!-- Calendar cell gradient -->
+    <linearGradient id="cellGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#333333"/>
+      <stop offset="100%" stop-color="#2a2a2a"/>
+    </linearGradient>
+    <!-- Precip cell highlight -->
+    <linearGradient id="precipGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(129,199,132,0.2)"/>
+      <stop offset="100%" stop-color="rgba(129,199,132,0.08)"/>
+    </linearGradient>
+    <!-- Today cell glow -->
+    <filter id="todayGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Decorative green glow top-left -->
+  <ellipse cx="100" cy="80" rx="400" ry="300" fill="url(#greenGlow)" opacity="0.5"/>
+
+  <!-- Bottom accent band -->
+  <rect x="0" y="480" width="1200" height="150" fill="url(#bottomAccent)"/>
+
+  <!-- Bottom green line accent -->
+  <rect x="0" y="618" width="1200" height="12" fill="#66bb6a" opacity="0.7"/>
+
+  <!-- ========== LEFT SIDE: Branding ========== -->
+
+  <!-- Sprout icon (scaled from icon.svg) -->
+  <g transform="translate(90, 120) scale(0.42)">
+    <rect width="512" height="512" rx="108" fill="#2a2a2a" stroke="#444" stroke-width="4"/>
+    <!-- Stem -->
+    <path d="M256 420 Q256 280 240 220" fill="none" stroke="#66bb6a" stroke-width="12" stroke-linecap="round"/>
+    <!-- Left leaf -->
+    <path d="M240 280 Q180 240 160 180 Q220 200 240 260" fill="#4caf50" stroke="#388e3c" stroke-width="3"/>
+    <!-- Right leaf -->
+    <path d="M248 240 Q310 200 330 140 Q270 160 248 220" fill="#66bb6a" stroke="#43a047" stroke-width="3"/>
+    <!-- Top sprout leaves -->
+    <path d="M240 220 Q200 160 220 100 Q260 140 250 200" fill="#81c784" stroke="#66bb6a" stroke-width="3"/>
+    <path d="M240 220 Q280 160 260 100 Q220 140 230 200" fill="#a5d6a7" stroke="#81c784" stroke-width="3"/>
+    <!-- Soil line -->
+    <path d="M180 420 Q220 400 256 420 Q290 440 330 420" fill="none" stroke="#8d6e63" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <!-- App title -->
+  <text x="90" y="395" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#ffffff" letter-spacing="-0.5">Hilary's Sprout</text>
+
+  <!-- Tagline -->
+  <text x="92" y="440" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="24" fill="#66bb6a" font-weight="500" letter-spacing="0.5">Gardening Weather Dashboard</text>
+
+  <!-- Subtitle description -->
+  <text x="92" y="482" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" fill="#888888">Daily temps, cloud cover &amp; precipitation</text>
+  <text x="92" y="510" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" fill="#888888">in a monthly calendar view</text>
+
+  <!-- Sprout emoji accent -->
+  <text x="92" y="575" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" fill="#666666">hilary-sprout.app</text>
+
+  <!-- ========== RIGHT SIDE: Calendar Preview ========== -->
+
+  <!-- Calendar card background -->
+  <rect x="560" y="55" width="590" height="520" rx="16" fill="#2a2a2a" stroke="#444" stroke-width="1"/>
+
+  <!-- Calendar header -->
+  <rect x="560" y="55" width="590" height="50" rx="16" fill="#333"/>
+  <rect x="560" y="89" width="590" height="16" fill="#333"/>
+  <text x="855" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#ffffff" text-anchor="middle">APRIL 2026</text>
+
+  <!-- Day of week headers -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" fill="#888" text-anchor="middle" font-weight="500">
+    <text x="608" y="128">SUN</text>
+    <text x="690" y="128">MON</text>
+    <text x="773" y="128">TUE</text>
+    <text x="855" y="128">WED</text>
+    <text x="937" y="128">THU</text>
+    <text x="1020" y="128">FRI</text>
+    <text x="1102" y="128">SAT</text>
+  </g>
+
+  <!-- Grid separator line -->
+  <line x1="575" y1="138" x2="1135" y2="138" stroke="#444" stroke-width="1"/>
+
+  <!-- ===== Calendar Grid - Row 1 (Apr 1-4, starts Wed) ===== -->
+  <!-- Apr 1 (Wed) -->
+  <rect x="822" y="148" width="67" height="78" rx="6" fill="url(#cellGrad)"/>
+  <text x="830" y="165" font-family="monospace" font-size="11" fill="#888">1</text>
+  <text x="830" y="182" font-family="monospace" font-size="12" fill="#fff" font-weight="600">68°</text><text x="856" y="182" font-family="monospace" font-size="10" fill="#888">/52°</text>
+  <text x="830" y="200" font-family="monospace" font-size="11" fill="#ccc">⛅ 35%</text>
+
+  <!-- Apr 2 (Thu) - rainy day -->
+  <rect x="905" y="148" width="67" height="78" rx="6" fill="url(#precipGrad)"/>
+  <text x="913" y="165" font-family="monospace" font-size="11" fill="#888">2</text>
+  <text x="913" y="182" font-family="monospace" font-size="12" fill="#fff" font-weight="600">62°</text><text x="939" y="182" font-family="monospace" font-size="10" fill="#888">/48°</text>
+  <text x="913" y="200" font-family="monospace" font-size="11" fill="#ccc">☁️ 90%</text>
+  <text x="913" y="216" font-family="monospace" font-size="10" fill="#81c784">0.45 in</text>
+
+  <!-- Apr 3 (Fri) -->
+  <rect x="987" y="148" width="67" height="78" rx="6" fill="url(#cellGrad)"/>
+  <text x="995" y="165" font-family="monospace" font-size="11" fill="#888">3</text>
+  <text x="995" y="182" font-family="monospace" font-size="12" fill="#fff" font-weight="600">71°</text><text x="1021" y="182" font-family="monospace" font-size="10" fill="#888">/50°</text>
+  <text x="995" y="200" font-family="monospace" font-size="11" fill="#ccc">☀️ 12%</text>
+
+  <!-- Apr 4 (Sat) -->
+  <rect x="1069" y="148" width="67" height="78" rx="6" fill="url(#cellGrad)"/>
+  <text x="1077" y="165" font-family="monospace" font-size="11" fill="#888">4</text>
+  <text x="1077" y="182" font-family="monospace" font-size="12" fill="#fff" font-weight="600">74°</text><text x="1103" y="182" font-family="monospace" font-size="10" fill="#888">/53°</text>
+  <text x="1077" y="200" font-family="monospace" font-size="11" fill="#ccc">☀️ 8%</text>
+
+  <!-- ===== Calendar Grid - Row 2 (Apr 5-11) ===== -->
+  <!-- Apr 5 (Sun) -->
+  <rect x="575" y="236" width="67" height="78" rx="6" fill="url(#cellGrad)"/>
+  <text x="583" y="253" font-family="monospace" font-size="11" fill="#888">5</text>
+  <text x="583" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">70°</text><text x="609" y="270" font-family="monospace" font-size="10" fill="#888">/51°</text>
+  <text x="583" y="288" font-family="monospace" font-size="11" fill="#ccc">⛅ 42%</text>
+
+  <!-- Apr 6 (Mon) - rainy -->
+  <rect x="658" y="236" width="67" height="78" rx="6" fill="url(#precipGrad)"/>
+  <text x="666" y="253" font-family="monospace" font-size="11" fill="#888">6</text>
+  <text x="666" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">59°</text><text x="692" y="270" font-family="monospace" font-size="10" fill="#888">/46°</text>
+  <text x="666" y="288" font-family="monospace" font-size="11" fill="#ccc">☁️ 95%</text>
+  <text x="666" y="304" font-family="monospace" font-size="10" fill="#81c784">0.82 in</text>
+
+  <!-- Apr 7 (Tue) -->
+  <rect x="740" y="236" width="67" height="78" rx="6" fill="url(#cellGrad)"/>
+  <text x="748" y="253" font-family="monospace" font-size="11" fill="#888">7</text>
+  <text x="748" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">65°</text><text x="774" y="270" font-family="monospace" font-size="10" fill="#888">/47°</text>
+  <text x="748" y="288" font-family="monospace" font-size="11" fill="#ccc">🌥️ 60%</text>
+
+  <!-- Apr 8 (Wed) -->
+  <rect x="822" y="236" width="67" height="78" rx="6" fill="url(#cellGrad)"/>
+  <text x="830" y="253" font-family="monospace" font-size="11" fill="#888">8</text>
+  <text x="830" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">72°</text><text x="856" y="270" font-family="monospace" font-size="10" fill="#888">/54°</text>
+  <text x="830" y="288" font-family="monospace" font-size="11" fill="#ccc">☀️ 15%</text>
+
+  <!-- Apr 9 (Thu) - TODAY - green outline -->
+  <rect x="905" y="236" width="67" height="78" rx="6" fill="url(#cellGrad)" stroke="#66bb6a" stroke-width="2.5" filter="url(#todayGlow)"/>
+  <text x="913" y="253" font-family="monospace" font-size="11" fill="#66bb6a" font-weight="700">9</text>
+  <text x="913" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">69°</text><text x="939" y="270" font-family="monospace" font-size="10" fill="#888">/52°</text>
+  <text x="913" y="288" font-family="monospace" font-size="11" fill="#ccc">⛅ 38%</text>
+
+  <!-- Apr 10 (Fri) - forecast dashed -->
+  <rect x="987" y="236" width="67" height="78" rx="6" fill="url(#cellGrad)" stroke="rgba(102,187,106,0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="995" y="253" font-family="monospace" font-size="11" fill="#888">10</text>
+  <text x="995" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">73°</text><text x="1023" y="270" font-family="monospace" font-size="10" fill="#888">/55°</text>
+  <text x="995" y="288" font-family="monospace" font-size="11" fill="#ccc">☀️ 10%</text>
+
+  <!-- Apr 11 (Sat) - forecast dashed -->
+  <rect x="1069" y="236" width="67" height="78" rx="6" fill="url(#cellGrad)" stroke="rgba(102,187,106,0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="1077" y="253" font-family="monospace" font-size="11" fill="#888">11</text>
+  <text x="1077" y="270" font-family="monospace" font-size="12" fill="#fff" font-weight="600">70°</text><text x="1105" y="270" font-family="monospace" font-size="10" fill="#888">/49°</text>
+  <text x="1077" y="288" font-family="monospace" font-size="11" fill="#ccc">⛅ 28%</text>
+
+  <!-- ===== Calendar Grid - Row 3 (Apr 12-18) ===== -->
+  <!-- Apr 12 (Sun) - forecast dashed, rainy -->
+  <rect x="575" y="324" width="67" height="78" rx="6" fill="url(#precipGrad)" stroke="rgba(102,187,106,0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="583" y="341" font-family="monospace" font-size="11" fill="#888">12</text>
+  <text x="583" y="358" font-family="monospace" font-size="12" fill="#fff" font-weight="600">64°</text><text x="609" y="358" font-family="monospace" font-size="10" fill="#888">/50°</text>
+  <text x="583" y="376" font-family="monospace" font-size="11" fill="#ccc">☁️ 85%</text>
+  <text x="583" y="392" font-family="monospace" font-size="10" fill="#81c784">0.31 in</text>
+
+  <!-- Apr 13 (Mon) - forecast dashed -->
+  <rect x="658" y="324" width="67" height="78" rx="6" fill="url(#cellGrad)" stroke="rgba(102,187,106,0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="666" y="341" font-family="monospace" font-size="11" fill="#888">13</text>
+  <text x="666" y="358" font-family="monospace" font-size="12" fill="#fff" font-weight="600">66°</text><text x="692" y="358" font-family="monospace" font-size="10" fill="#888">/48°</text>
+  <text x="666" y="376" font-family="monospace" font-size="11" fill="#ccc">🌥️ 55%</text>
+
+  <!-- Apr 14 (Tue) - forecast dashed -->
+  <rect x="740" y="324" width="67" height="78" rx="6" fill="url(#cellGrad)" stroke="rgba(102,187,106,0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="748" y="341" font-family="monospace" font-size="11" fill="#888">14</text>
+  <text x="748" y="358" font-family="monospace" font-size="12" fill="#fff" font-weight="600">75°</text><text x="774" y="358" font-family="monospace" font-size="10" fill="#888">/56°</text>
+  <text x="748" y="376" font-family="monospace" font-size="11" fill="#ccc">☀️ 5%</text>
+
+  <!-- Remaining cells as faded placeholders -->
+  <rect x="822" y="324" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.5"/>
+  <text x="830" y="341" font-family="monospace" font-size="11" fill="#555">15</text>
+  <rect x="905" y="324" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.5"/>
+  <text x="913" y="341" font-family="monospace" font-size="11" fill="#555">16</text>
+  <rect x="987" y="324" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.5"/>
+  <text x="995" y="341" font-family="monospace" font-size="11" fill="#555">17</text>
+  <rect x="1069" y="324" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.5"/>
+  <text x="1077" y="341" font-family="monospace" font-size="11" fill="#555">18</text>
+
+  <!-- Row 4 faded -->
+  <rect x="575" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.4"/>
+  <text x="583" y="429" font-family="monospace" font-size="11" fill="#444">19</text>
+  <rect x="658" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.4"/>
+  <text x="666" y="429" font-family="monospace" font-size="11" fill="#444">20</text>
+  <rect x="740" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.35"/>
+  <text x="748" y="429" font-family="monospace" font-size="11" fill="#444">21</text>
+  <rect x="822" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.35"/>
+  <text x="830" y="429" font-family="monospace" font-size="11" fill="#444">22</text>
+  <rect x="905" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.3"/>
+  <text x="913" y="429" font-family="monospace" font-size="11" fill="#444">23</text>
+  <rect x="987" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.3"/>
+  <text x="995" y="429" font-family="monospace" font-size="11" fill="#444">24</text>
+  <rect x="1069" y="412" width="67" height="78" rx="6" fill="#2e2e2e" opacity="0.3"/>
+  <text x="1077" y="429" font-family="monospace" font-size="11" fill="#444">25</text>
+
+  <!-- Row 5 very faded -->
+  <rect x="575" y="500" width="67" height="60" rx="6" fill="#2e2e2e" opacity="0.2"/>
+  <text x="583" y="517" font-family="monospace" font-size="11" fill="#3a3a3a">26</text>
+  <rect x="658" y="500" width="67" height="60" rx="6" fill="#2e2e2e" opacity="0.2"/>
+  <text x="666" y="517" font-family="monospace" font-size="11" fill="#3a3a3a">27</text>
+  <rect x="740" y="500" width="67" height="60" rx="6" fill="#2e2e2e" opacity="0.2"/>
+  <text x="748" y="517" font-family="monospace" font-size="11" fill="#3a3a3a">28</text>
+  <rect x="822" y="500" width="67" height="60" rx="6" fill="#2e2e2e" opacity="0.2"/>
+  <text x="830" y="517" font-family="monospace" font-size="11" fill="#3a3a3a">29</text>
+  <rect x="905" y="500" width="67" height="60" rx="6" fill="#2e2e2e" opacity="0.2"/>
+  <text x="913" y="517" font-family="monospace" font-size="11" fill="#3a3a3a">30</text>
+
+  <!-- Fade overlay on bottom of calendar to blend out -->
+  <rect x="560" y="490" width="590" height="85" rx="0" fill="url(#bottomAccent)" opacity="0.5"/>
+</svg>
