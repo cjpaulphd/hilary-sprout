@@ -866,12 +866,15 @@ async function fetchRecentHistory(lat, lon, startDate, endDate) {
     }
 }
 
-// True when a daily series carries at least one usable (finite) high temperature.
+// True when a daily series carries usable (finite) temperature AND
+// precipitation values. A baseline without precipitation would silently drop
+// every rain/wet-day comparison, so it must trigger the fallback instead.
 function hasUsableDailySeries(data) {
     const daily = data && data.daily;
     if (!daily || !Array.isArray(daily.time) || daily.time.length === 0) return false;
     const highs = daily.temperature_2m_max || [];
-    return highs.some(v => Number.isFinite(v));
+    const precips = daily.precipitation_sum || [];
+    return highs.some(v => Number.isFinite(v)) && precips.some(v => Number.isFinite(v));
 }
 
 // Ten-year reanalysis baseline from the Historical Weather (Archive) API.
@@ -1112,10 +1115,11 @@ async function loadWeather() {
         if (loadId !== currentLoadId) return;
         historicalIndex = idx;
         historicalAverages = computeMonthlyAverages(idx);
-        renderHistoricalAverages();
-        // Re-render current month summary now that the baseline is available.
-        const summaryEl2 = document.getElementById('current-month-summary');
-        if (summaryEl2) renderMonthSummary(summaryEl2, locNowForAvg.getFullYear(), locNowForAvg.getMonth());
+        // Refresh everything that shows a ten-year comparison: the monthly
+        // cards, the current-month summary, and any already-expanded past
+        // months (whose summaries would otherwise miss their "10yr avg" line
+        // if they were expanded before the baseline finished loading).
+        rerenderAll();
     }).catch(err => {
         if (loadId !== currentLoadId) return;
         console.error('Error loading averages:', err);
@@ -1315,13 +1319,22 @@ function renderMonthSummary(container, year, month) {
     // Determine the completed (non-forecast) span to summarize.
     let relevant, expected, cutoffDay = null;
     if (isCurrentMonth) {
-        // Month-to-date through yesterday in the location's local time.
-        cutoffDay = locNow.getDate() - 1;
-        if (cutoffDay < 1) {
-            // No completed days yet this month: show the calendar, omit comparison.
+        // Month-to-date through the most recent completed day that actually has
+        // data. Recent-history sources can lag a day or two behind "yesterday",
+        // so anchoring the cutoff to the data (rather than the calendar) keeps
+        // the actual totals and the ten-year MTD average on an identical span
+        // and prevents the whole summary from blanking during that lag.
+        const yesterdayDom = locNow.getDate() - 1;
+        const completedWithData = days.filter(d => !d.isForecast &&
+            parseDate(d.date).getDate() <= yesterdayDom &&
+            (d.high != null || d.low != null || d.precip != null));
+        if (yesterdayDom < 1 || completedWithData.length === 0) {
+            // No completed days with data yet this month: show the calendar,
+            // omit the month-to-date summary.
             container.innerHTML = '';
             return;
         }
+        cutoffDay = Math.max(...completedWithData.map(d => parseDate(d.date).getDate()));
         relevant = days.filter(d => !d.isForecast && parseDate(d.date).getDate() <= cutoffDay);
         expected = cutoffDay;
     } else {
@@ -1336,30 +1349,39 @@ function renderMonthSummary(container, year, month) {
     const highOk = adequateCoverage(s.highCount, expected);
     const lowOk = adequateCoverage(s.lowCount, expected);
 
-    // Compare like periods with like: month-to-date vs the same day-of-month
-    // span in prior years for the current month; complete-month averages otherwise.
-    let hist, vsLabel;
-    if (isCurrentMonth) {
-        hist = historicalIndex ? computeMonthToDateAverages(historicalIndex, month, cutoffDay) : null;
-        vsLabel = '10yr MTD avg';
-    } else {
-        hist = historicalAverages ? historicalAverages.find(a => a.month === month) : null;
-        vsLabel = '10yr avg';
-    }
+    // Comparisons. The current month gets two lines per stat: the like-for-like
+    // ten-year average for the same day-of-month span ("10yr MTD avg"), plus
+    // the complete-calendar-month ten-year average ("10yr month avg") so a
+    // gardener can see how much more rain the rest of the month typically
+    // brings. Completed months compare against the complete-month average only.
+    const monthHist = historicalAverages ? historicalAverages.find(a => a.month === month) : null;
+    const mtdHist = (isCurrentMonth && historicalIndex)
+        ? computeMonthToDateAverages(historicalIndex, month, cutoffDay)
+        : null;
 
-    const cmp = (val, fmt) => (val != null)
-        ? `<div class="stat-compare">${fmt(val)}</div><div class="stat-vs">${vsLabel}</div>`
+    const cmpLine = (val, fmt, label) => (val != null)
+        ? `<div class="stat-compare">${fmt(val)}</div><div class="stat-vs">${label}</div>`
         : '';
+    const cmpBlock = (getter, fmt) => {
+        let html = '';
+        if (isCurrentMonth) {
+            if (mtdHist) html += cmpLine(getter(mtdHist), fmt, '10yr MTD avg');
+            if (monthHist) html += cmpLine(getter(monthHist), fmt, '10yr month avg');
+        } else if (monthHist) {
+            html += cmpLine(getter(monthHist), fmt, '10yr avg');
+        }
+        return html;
+    };
 
     const precipVal = precipOk ? formatPrecipValue(s.precipTotal) : '—';
     const wetVal = precipOk ? String(s.wetDays) : '—';
     const highVal = highOk ? formatTempValue(s.avgHigh) : '—';
     const lowVal = lowOk ? formatTempValue(s.avgLow) : '—';
 
-    const precipAvg = hist ? cmp(hist.avgPrecip, formatPrecipValue) : '';
-    const wetAvg = hist ? cmp(hist.avgWetDays, v => v.toFixed(1)) : '';
-    const highAvg = hist ? cmp(hist.avgHigh, formatTempValue) : '';
-    const lowAvg = hist ? cmp(hist.avgLow, formatTempValue) : '';
+    const precipAvg = cmpBlock(h => h.avgPrecip, formatPrecipValue);
+    const wetAvg = cmpBlock(h => h.avgWetDays, v => v.toFixed(1));
+    const highAvg = cmpBlock(h => h.avgHigh, formatTempValue);
+    const lowAvg = cmpBlock(h => h.avgLow, formatTempValue);
 
     container.innerHTML = `
         <div class="summary-stat">

@@ -10,7 +10,7 @@ A gardening-focused weather dashboard that displays daily temperature, cloud cov
 
 - **Calendar Grid** — Visual day-by-day grid showing high/low temps, cloud cover icons, and precipitation for each day
 - **Data Table** — Sortable table view as an alternative to the calendar grid, with columns for date, high, low, cloud cover, and precipitation
-- **Monthly Summaries** — Total precipitation, wet days, average high, and average low. For the current month these are month-to-date (completed days only) and compared against the ten-year average for the same day-of-month span (`10yr MTD avg`); completed past months compare against the complete-month ten-year average (`10yr avg`)
+- **Monthly Summaries** — Total precipitation, wet days, average high, and average low. For the current month these are month-to-date (completed days only) and compared against both the ten-year average for the same day-of-month span (`10yr MTD avg`) and the complete-calendar-month ten-year average (`10yr month avg`), so you can see how the month is tracking and how much more rain to expect; completed past months compare against the complete-month ten-year average (`10yr avg`)
 - **Past Months** — Expandable sections for the previous 6 months, lazy-loaded on demand
 - **Forecast Days** — Current 7-day forecast shown with dashed borders, merged with recent modeled history for the current month
 
