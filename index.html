@@ -172,7 +172,7 @@
                 <button id="temp-toggle" class="toggle-btn" aria-label="Toggle temperature unit">
                     <span id="temp-toggle-label">°C</span>
                 </button>
-                <button id="precip-threshold-btn" class="toggle-btn" aria-label="Set rain day threshold">
+                <button id="precip-threshold-btn" class="toggle-btn" aria-label="Set wet day threshold">
                     <span>🌧️</span>
                     <span id="precip-threshold-label">Any</span>
                 </button>
@@ -253,7 +253,7 @@
                     </div>
                     <div class="legend-item">
                         <span class="legend-sample">☀️ 15%</span>
-                        <span>Average daytime cloud cover</span>
+                        <span>Average daily cloud cover</span>
                     </div>
                     <div class="legend-item">
                         <span class="legend-sample legend-precip">0.25 in</span>
@@ -275,16 +275,23 @@
                     </div>
                     <div class="legend-item">
                         <span class="legend-swatch legend-swatch-forecast"></span>
-                        <span>Dashed border = forecast (not yet recorded)</span>
+                        <span>Dashed border = forecast day</span>
                     </div>
                     <div class="legend-item">
                         <span class="legend-swatch legend-swatch-precip"></span>
-                        <span>Light green fill = rain day (above threshold set via 🌧️ button)</span>
+                        <span>Light green fill = wet day (above threshold set via 🌧️ button)</span>
                     </div>
                     <div class="legend-item">
                         <span class="legend-swatch legend-swatch-precip-heavy"></span>
-                        <span>Darker green fill = heavy rain (&gt;5 mm)</span>
+                        <span>Darker green fill = 5 mm or more precipitation</span>
                     </div>
+                </div>
+                <div class="legend-section legend-about">
+                    <h4>About the Data</h4>
+                    <p>Future dates use Open-Meteo's <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">Best Match forecast</a>. Recent past dates normally use Open-Meteo <a href="https://open-meteo.com/en/docs/historical-forecast-api" target="_blank" rel="noopener noreferrer">Historical Forecast</a>, which combines the initial hours of successive operational model runs. These values incorporate observations through model initialization but are not measurements at the selected point.</p>
+                    <p>Ten-year comparisons use Open-Meteo <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" rel="noopener noreferrer">Historical Weather</a> reanalysis, normally ERA5-Land for a consistent year-to-year baseline. Reanalysis combines observations with numerical models to estimate conditions across a complete grid.</p>
+                    <p>Recent history and ten-year averages use different model products and may have different biases. Comparisons are intended to provide practical context rather than measurement-grade climate anomalies. A ten-year average is not a formal 30-year climate normal.</p>
+                    <p>Precipitation includes rain and the liquid-water equivalent of frozen precipitation. Local rain gauges may differ, especially during thunderstorms or in complex terrain.</p>
                 </div>
             </div>
         </div>
@@ -293,8 +300,8 @@
         <div id="precip-threshold-modal" class="modal hidden">
             <div class="modal-content modal-content-sm">
                 <button id="close-precip-modal" class="close-btn">&times;</button>
-                <h3>Rain Day Threshold</h3>
-                <p class="modal-hint">Set the minimum precipitation to count as a rainy day. Days at or below this amount won't be highlighted or counted.</p>
+                <h3>Wet Day Threshold</h3>
+                <p class="modal-hint">Set the minimum daily precipitation required to count as a wet day. Days at or below this amount are not highlighted or counted.</p>
                 <div class="precip-threshold-row">
                     <input type="number" id="precip-threshold-input" min="0" step="0.01" class="precip-threshold-input" placeholder="0">
                     <span id="precip-threshold-unit" class="precip-threshold-unit">in</span>

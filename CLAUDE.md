@@ -25,10 +25,15 @@ Hilary's Sprout is a gardening-focused weather dashboard deployed on GitHub Page
 
 ## APIs Used (no keys required)
 
-- **Open-Meteo Forecast** (`api.open-meteo.com/v1/forecast`) — 7-day daily forecast (temp high/low, precipitation, cloud cover)
-- **Open-Meteo Archive** (`archive-api.open-meteo.com/v1/archive`) — historical daily data for past 6 months and 10-year averages
+Each Open-Meteo product is used for a distinct purpose — do not conflate them:
+
+- **Open-Meteo Forecast** (`api.open-meteo.com/v1/forecast`) — **future dates**: 7-day Best Match forecast (temp high/low, precipitation, cloud cover). Also the source of the location `timezone`.
+- **Open-Meteo Historical Forecast** (`historical-forecast-api.open-meteo.com/v1/forecast`) — **recent past**: completed current-month days and the previous 6 months. Primary recent-history source; falls back once to the Archive API on failure.
+- **Open-Meteo Archive / Historical Weather** (`archive-api.open-meteo.com/v1/archive`) — **ten-year reanalysis baseline only**. Requests `models=era5_land` first, retrying once without `models` if ERA5-Land returns no usable series. Kept independent from recent Historical Forecast data.
 - **Open-Meteo Geocoding** (`geocoding-api.open-meteo.com/v1/search`) — location search
 - **Nominatim** (`nominatim.openstreetmap.org`) — reverse geocoding for GPS, ZIP code fallback
+
+Recent past cells and the ten-year baseline are **modeled estimates, not point observations** — never describe non-forecast days as observations, recordings, or gauge readings. Each normalized day record carries a `source` field (`forecast`, `historical-forecast`, or `historical-weather-fallback`) and an `isForecast` flag.
 
 ## Important Patterns
 
@@ -36,16 +41,28 @@ Hilary's Sprout is a gardening-focused weather dashboard deployed on GitHub Page
 All temps from Open-Meteo arrive in Celsius. Conversion: `Math.round((celsius * 9/5) + 32)` via `formatTempValue()`.
 
 ### Precipitation Conversion
-All precipitation from Open-Meteo arrives in millimeters. Conversion to inches: `(mm / 25.4).toFixed(2)` via `formatPrecipValue()`.
+All precipitation from Open-Meteo arrives in millimeters. Conversion to inches: `(mm / 25.4).toFixed(2)` via `formatPrecipValue()`. Precipitation includes rain and the water equivalent of frozen precipitation — hence "wet days," not "rainy days."
+
+### Missing Values
+Missing/null/nonfinite daily values are **preserved as `null`, never coerced to zero** (`finiteOrNull()`). A genuine zero stays zero. Missing precipitation renders as omitted (grid), an em dash (table), or a blank cell (CSV), and is excluded from totals/averages so partial coverage does not understate results.
+
+### Wet-Day Threshold
+The user-set threshold (🌧️ button, mm internally) defines a wet day via `isWetDay(precip)` (strictly greater than the threshold). The same threshold is applied consistently to current summaries, past-month summaries, and ten-year averages. Changing it recomputes aggregates locally from cached daily data — no refetch.
+
+### Location Timezone
+All calendar logic ("today," current month, prior-month headings, "yesterday," the MTD cutoff) uses the selected location's local time via `getLocationNow()`, driven by the `timezone` Open-Meteo returns on the forecast response (stored on `currentLocation.timezone`). `loadWeather()` fetches the forecast first to learn the timezone before computing any date ranges. A monotonic `currentLoadId` guards against stale responses from a previously selected location.
+
+### Month-to-Date Comparisons
+For the current month, summary metrics use only completed (non-forecast) dates and are compared against the ten-year average for the **same day-of-month span** (`10yr MTD avg`), computed by `computeMonthToDateAverages()`. Completed past months use complete-month averages (`10yr avg`). The 12 historical-average cards always show complete-month values.
 
 ### Date Parsing
 Open-Meteo returns daily dates as `"YYYY-MM-DD"` strings. JavaScript's `new Date("YYYY-MM-DD")` parses these as **UTC midnight**, which shifts to the previous day in US timezones. Always append `"T00:00:00"` when parsing daily dates to force local time interpretation.
 
 ### Data Flow
-1. On load/location change: fetch 7-day forecast + current month's archive data
-2. Past months are lazy-loaded when the user expands a collapsed month section
-3. 10-year historical averages are fetched once per location and cached
-4. Forecast and archive data are merged for the current month (forecast takes priority for overlapping days)
+1. On load/location change: fetch the 7-day forecast **first** (to learn the location timezone), then fetch completed current-month days from the Historical Forecast API using the location's date range
+2. Past months (previous 6) are lazy-loaded from the Historical Forecast API when the user expands a collapsed month section
+3. The ten-year ERA5-Land baseline is fetched once per location; the raw daily series is cached in `historicalIndex` so threshold changes recompute aggregates locally
+4. Forecast and recent-history data are merged for the current month (forecast takes priority for overlapping days)
 
 ### localStorage Keys
 All keys are prefixed with `hilarysprout_` to avoid conflicts:
@@ -66,5 +83,5 @@ No automated tests. Manual testing: open index.html in a browser, verify calenda
 ## Common Tasks
 
 - **Change default location**: Update `DEFAULT_LOCATION` at the top of `app.js`
-- **Add a new data field to calendar cells**: Add the parameter to `fetchForecastData()` / `fetchHistoricalData()`, then render it in `renderMonthGrid()` and `renderMonthTable()`
+- **Add a new data field to calendar cells**: Add the parameter to `DAILY_FIELDS` / `fetchForecastData()` / `fetchRecentHistory()`, normalize it in `processDailyData()` (preserving missing values as `null`), then render it in `renderMonthGrid()` and `renderMonthTable()`
 - **Modify theme colors**: Edit CSS variables in `:root` and `[data-theme="light"]` selectors in `styles.css`

@@ -1137,6 +1137,17 @@ body {
     font-size: 0.88rem;
 }
 
+.legend-about p {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: 0 0 8px;
+}
+
+.legend-about a {
+    color: var(--accent-green);
+}
+
 .legend-sample {
     min-width: 80px;
     font-size: 0.82rem;
