@@ -1058,16 +1058,73 @@ async function loadWeather() {
 
     updateLocationDisplay();
 
+    let forecastOk = false;
+
+    // The recent-history and ten-year-baseline date ranges depend on the
+    // location's local date, which requires its timezone. When the timezone is
+    // already known (stored with the location from a previous load — an IANA
+    // timezone is a fixed property of the coordinates), start both fetches
+    // immediately, in parallel with the forecast. For a location seen for the
+    // first time they start the moment the forecast supplies the timezone —
+    // still in parallel with each other, so the slow ten-year archive request
+    // never waits behind the recent-history one.
+    let secondary = null;
+    let secondaryToday = null;
+    function startSecondaryFetches() {
+        if (secondary) return;
+        const locNow = getLocationNow();
+        secondaryToday = fmtDate(locNow);
+        const year = locNow.getFullYear();
+        const month = locNow.getMonth();
+
+        const yesterday = new Date(locNow);
+        yesterday.setDate(yesterday.getDate() - 1);
+        let recent = null;
+        if (yesterday.getMonth() === month && yesterday.getFullYear() === year) {
+            const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+            recent = fetchRecentHistory(lat, lon, monthStart, fmtDate(yesterday));
+            recent.catch(() => {}); // consumed (with error handling) below
+        }
+
+        const batch = { recent, baseline: fetchHistoricalAverages(lat, lon, locNow) };
+        batch.baseline.then(idx => {
+            // Ignore stale loads and superseded batches (see date recheck below).
+            if (loadId !== currentLoadId || secondary !== batch) return;
+            historicalIndex = idx;
+            historicalAverages = computeMonthlyAverages(idx);
+            if (forecastOk) {
+                // Refresh everything that shows a ten-year comparison: the
+                // monthly cards, the current-month summary, and any already-
+                // expanded past months (whose summaries would otherwise miss
+                // their "10yr avg" line if expanded before the baseline landed).
+                rerenderAll();
+            } else {
+                renderHistoricalAverages();
+            }
+        }).catch(err => {
+            if (loadId !== currentLoadId || secondary !== batch) return;
+            console.error('Error loading averages:', err);
+            if (avgEl) avgEl.innerHTML = '<div class="loading">Failed to load historical averages.</div>';
+        });
+        secondary = batch;
+    }
+    if (currentLocation.timezone) startSecondaryFetches();
+
     try {
-        // 1. Fetch the ordinary 7-day forecast first, to learn the location's timezone.
+        // The 7-day forecast is also the authority on the location's timezone.
         const forecastData = await fetchForecastData(lat, lon);
         if (loadId !== currentLoadId) return;
 
-        // 2. Store the location's timezone.
         currentLocation.timezone = forecastData.timezone || currentLocation.timezone || null;
         saveLastLocation(currentLocation);
 
-        // 3. Calculate the selected location's current date and month.
+        // If early fetches ran under a stored timezone whose local date
+        // disagrees with the authoritative one (only possible with a corrupted
+        // stored zone straddling local midnight), restart them with correct
+        // date ranges; the superseded batch is ignored via the check above.
+        if (secondary && secondaryToday !== fmtDate(getLocationNow())) secondary = null;
+        startSecondaryFetches();
+
         const locNow = getLocationNow();
         const year = locNow.getFullYear();
         const month = locNow.getMonth();
@@ -1076,55 +1133,30 @@ async function loadWeather() {
         const titleEl = document.getElementById('current-month-title');
         if (titleEl) titleEl.textContent = `${MONTH_NAMES[month]} ${year}`;
 
-        // Process forecast days (future dates).
+        // Process forecast days (future dates) and paint the calendar right
+        // away; completed days fill in when the recent history arrives.
         const forecastDates = new Set(forecastData.daily.time);
-        const forecastDays = processDailyData(forecastData, forecastDates, 'forecast');
-        mergeIntoMonthlyData(forecastDays);
+        mergeIntoMonthlyData(processDailyData(forecastData, forecastDates, 'forecast'));
+        forecastOk = true;
+        renderCurrentMonth();
+        renderPastMonthHeaders();
 
-        // 4a. Fetch recent Historical Forecast data for completed days this month.
-        const yesterday = new Date(locNow);
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (yesterday.getMonth() === month && yesterday.getFullYear() === year) {
-            const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-            const yesterdayStr = fmtDate(yesterday);
+        if (secondary.recent) {
             try {
-                const { data, source } = await fetchRecentHistory(lat, lon, monthStart, yesterdayStr);
+                const { data, source } = await secondary.recent;
                 if (loadId !== currentLoadId) return;
                 mergeIntoMonthlyData(processDailyData(data, null, source));
+                renderCurrentMonth();
             } catch (e) {
                 console.error('Error loading recent history:', e);
             }
         }
-
-        if (loadId !== currentLoadId) return;
-        // 5. Render current month and past-month headings using the location's date.
-        renderCurrentMonth();
-        renderPastMonthHeaders();
-
     } catch (err) {
         console.error('Error loading weather:', err);
         if (loadId === currentLoadId && currentMonthEl) {
             currentMonthEl.innerHTML = '<div class="loading">Failed to load weather data. Please try again.</div>';
         }
-        return;
     }
-
-    // 4b. Fetch ten-year baseline in the background, independent of recent history.
-    const locNowForAvg = getLocationNow();
-    fetchHistoricalAverages(lat, lon, locNowForAvg).then(idx => {
-        if (loadId !== currentLoadId) return;
-        historicalIndex = idx;
-        historicalAverages = computeMonthlyAverages(idx);
-        // Refresh everything that shows a ten-year comparison: the monthly
-        // cards, the current-month summary, and any already-expanded past
-        // months (whose summaries would otherwise miss their "10yr avg" line
-        // if they were expanded before the baseline finished loading).
-        rerenderAll();
-    }).catch(err => {
-        if (loadId !== currentLoadId) return;
-        console.error('Error loading averages:', err);
-        if (avgEl) avgEl.innerHTML = '<div class="loading">Failed to load historical averages.</div>';
-    });
 }
 
 async function loadMonthData(year, month) {
