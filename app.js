@@ -1,9 +1,26 @@
 // Hilary's Sprout - Gardening Weather Dashboard
 // Uses Open-Meteo API (free, no API key required)
 
+// Open-Meteo endpoints, separated by purpose:
+//  - Forecast API           -> future dates (Best Match forecast)
+//  - Historical Forecast API -> recent past (completed current-month days + prior 6 months)
+//  - Archive (Historical Weather) API -> ten-year reanalysis baseline (ERA5-Land first)
 const FORECAST_API = 'https://api.open-meteo.com/v1/forecast';
+const HISTORICAL_FORECAST_API = 'https://historical-forecast-api.open-meteo.com/v1/forecast';
 const ARCHIVE_API = 'https://archive-api.open-meteo.com/v1/archive';
 const GEOCODING_API = 'https://geocoding-api.open-meteo.com/v1/search';
+
+// Daily fields requested from every weather endpoint.
+const DAILY_FIELDS = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'cloud_cover_mean'];
+
+// Precipitation at or above this daily amount (mm) gets the emphasized (darker) fill.
+// This is a gardening-oriented visual cue, not a standardized heavy-rain classification.
+const EMPHASIZED_DAILY_PRECIP_MM = 5;
+
+// Minimum fraction of expected daily values required before a monthly/period
+// statistic is considered adequately covered. ERA5-Land is generally gap-free,
+// so we prefer near-complete coverage.
+const COVERAGE_MIN = 0.9;
 
 const DEFAULT_LOCATION = {
     name: 'Durham, NC',
@@ -36,11 +53,16 @@ if (urlLat && urlLon) {
 }
 
 let monthlyData = {};       // keyed by "YYYY-MM", each entry has { days: [...], isForecast: {...} }
-let historicalAverages = null;
+let historicalAverages = null;   // computed complete-month ten-year averages
+let historicalIndex = null;      // raw ten-year daily series grouped by year-month (for local recompute + MTD)
 let viewMode = getViewMode(); // 'grid' or 'table'
 let expandedMonths = {};    // keyed by "YYYY-MM", true if expanded
 let loadingMonths = {};     // keyed by "YYYY-MM", true if currently fetching
 let tableSortState = {};    // keyed by "YYYY-MM", { column, ascending }
+
+// Monotonic load token. Each loadWeather() call captures its own id; slow
+// responses for a previous location are dropped instead of clobbering state.
+let currentLoadId = 0;
 
 // ─── localStorage Helpers ────────────────────────────────────────────
 
@@ -57,11 +79,15 @@ function getLastLocation() {
 
 function saveLastLocation(location) {
     try {
-        localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify({
+        const payload = {
             name: location.name,
             latitude: location.latitude,
             longitude: location.longitude
-        }));
+        };
+        // Preserve the location's timezone when we know it, so date logic is
+        // correct on the next load before the forecast response arrives.
+        if (location.timezone) payload.timezone = location.timezone;
+        localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify(payload));
     } catch (e) {}
 }
 
@@ -89,7 +115,7 @@ function saveViewMode(mode) {
     try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch (e) {}
 }
 
-// Precipitation threshold in mm (0 = any precipitation counts as a rainy day)
+// Wet-day precipitation threshold in mm (0 = any precipitation counts as a wet day)
 function getPrecipThreshold() {
     try {
         const val = localStorage.getItem(PRECIP_THRESHOLD_KEY);
@@ -110,10 +136,32 @@ function formatPrecipThreshold() {
     return (mm / 25.4).toFixed(2) + ' in';
 }
 
-function isPrecipDay(precipMm) {
-    if (precipMm == null) return false;
+// A day counts as "wet" when its precipitation is strictly above the threshold.
+// Days at or below the threshold are not highlighted or counted.
+function isWetDay(precipMm) {
+    if (!Number.isFinite(precipMm)) return false;
     const threshold = getPrecipThreshold();
     return precipMm > threshold;
+}
+
+// ─── Numeric Helpers ─────────────────────────────────────────────────
+
+// Preserve genuine numeric zeros; treat null/undefined/NaN/Infinity as missing.
+function finiteOrNull(v) {
+    return Number.isFinite(v) ? v : null;
+}
+
+function mean(arr) {
+    return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+}
+
+function sum(arr) {
+    return arr.reduce((a, b) => a + b, 0);
+}
+
+// True when `count` finite values out of `expected` meets the coverage floor.
+function adequateCoverage(count, expected) {
+    return expected > 0 && count >= Math.ceil(expected * COVERAGE_MIN);
 }
 
 // ─── Locale Detection ────────────────────────────────────────────────
@@ -545,17 +593,13 @@ function savePrecipThresholdFromInput() {
     updatePrecipThresholdUI();
     document.getElementById('precip-threshold-modal').classList.add('hidden');
 
-    // Re-fetch averages since rainy day counts depend on threshold
-    if (historicalAverages) {
-        const { latitude: lat, longitude: lon } = currentLocation;
-        fetchHistoricalAverages(lat, lon).then(avgs => {
-            historicalAverages = avgs;
-            rerenderAll();
-            renderHistoricalAverages();
-        }).catch(() => {});
-    } else {
-        rerenderAll();
+    // The threshold only changes wet-day counts and highlighting, not the
+    // underlying data. Recompute ten-year aggregates locally from the cached
+    // daily series instead of re-fetching.
+    if (historicalIndex) {
+        historicalAverages = computeMonthlyAverages(historicalIndex);
     }
+    rerenderAll();
 }
 
 // ─── Location Search / Geocoding ─────────────────────────────────────
@@ -633,12 +677,14 @@ function selectLocation(result) {
     currentLocation = {
         name: `${result.name}${result.admin1 ? ', ' + result.admin1 : ''}`,
         latitude: result.latitude,
-        longitude: result.longitude
+        longitude: result.longitude,
+        timezone: result.timezone || null
     };
     updateLocationDisplay();
     saveLastLocation(currentLocation);
     monthlyData = {};
     historicalAverages = null;
+    historicalIndex = null;
     expandedMonths = {};
     loadWeather();
 }
@@ -725,9 +771,38 @@ function parseDate(str) {
     return new Date(str + 'T00:00:00');
 }
 
+// Return a Date whose local components represent the selected location's
+// current wall-clock date and time. Falls back to the browser's clock until
+// the location's timezone is known.
+function getLocationNow() {
+    const tz = currentLocation && currentLocation.timezone;
+    if (!tz) return new Date();
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        }).formatToParts(new Date());
+        const map = {};
+        parts.forEach(p => { map[p.type] = p.value; });
+        let hour = parseInt(map.hour, 10);
+        if (hour === 24) hour = 0; // some engines emit "24" at midnight
+        return new Date(
+            parseInt(map.year, 10),
+            parseInt(map.month, 10) - 1,
+            parseInt(map.day, 10),
+            hour,
+            parseInt(map.minute, 10),
+            parseInt(map.second, 10)
+        );
+    } catch (e) {
+        return new Date();
+    }
+}
+
 function todayStr() {
-    const d = new Date();
-    return fmtDate(d);
+    return fmtDate(getLocationNow());
 }
 
 function daysInMonth(year, month) {
@@ -758,106 +833,184 @@ async function fetchForecastData(lat, lon) {
     return response.json();
 }
 
-async function fetchHistoricalData(lat, lon, startDate, endDate) {
-    const params = new URLSearchParams({
+// Recent past history (completed current-month days + prior 6 months).
+// Primary source is the Historical Forecast API; a single fallback request to
+// the Historical Weather (Archive) API is acceptable when it fails. The source
+// used is returned so it can be preserved in the normalized day record.
+async function fetchRecentHistory(lat, lon, startDate, endDate) {
+    const buildParams = () => new URLSearchParams({
         latitude: lat,
         longitude: lon,
-        daily: ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'cloud_cover_mean'].join(','),
+        daily: DAILY_FIELDS.join(','),
         temperature_unit: 'celsius',
         precipitation_unit: 'mm',
         timezone: 'auto',
         start_date: startDate,
         end_date: endDate
     });
-    const response = await fetch(`${ARCHIVE_API}?${params}`);
-    if (!response.ok) throw new Error('Failed to fetch historical data');
-    return response.json();
+
+    try {
+        const response = await fetch(`${HISTORICAL_FORECAST_API}?${buildParams()}`);
+        if (!response.ok) throw new Error('Historical Forecast request failed');
+        const data = await response.json();
+        if (!data.daily || !data.daily.time || data.daily.time.length === 0) {
+            throw new Error('Historical Forecast returned no daily series');
+        }
+        return { data, source: 'historical-forecast' };
+    } catch (e) {
+        // One fallback request to the Historical Weather (Archive) API.
+        const response = await fetch(`${ARCHIVE_API}?${buildParams()}`);
+        if (!response.ok) throw new Error('Failed to fetch historical data');
+        const data = await response.json();
+        return { data, source: 'historical-weather-fallback' };
+    }
 }
 
-async function fetchHistoricalAverages(lat, lon) {
-    const now = new Date();
-    const endYear = now.getFullYear() - 1;
+// True when a daily series carries at least one usable (finite) high temperature.
+function hasUsableDailySeries(data) {
+    const daily = data && data.daily;
+    if (!daily || !Array.isArray(daily.time) || daily.time.length === 0) return false;
+    const highs = daily.temperature_2m_max || [];
+    return highs.some(v => Number.isFinite(v));
+}
+
+// Ten-year reanalysis baseline from the Historical Weather (Archive) API.
+// ERA5-Land is requested first for a consistent year-to-year baseline; if it
+// fails or returns no usable series, retry once without the models parameter.
+// Returns the raw daily series grouped by year-month (see buildHistoricalIndex).
+async function fetchHistoricalAverages(lat, lon, locNow) {
+    const endYear = locNow.getFullYear() - 1;
     const startYear = endYear - 9;
 
-    const params = new URLSearchParams({
-        latitude: lat,
-        longitude: lon,
-        daily: ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum'].join(','),
-        temperature_unit: 'celsius',
-        precipitation_unit: 'mm',
-        timezone: 'auto',
-        start_date: `${startYear}-01-01`,
-        end_date: `${endYear}-12-31`
-    });
+    const buildParams = (models) => {
+        const p = new URLSearchParams({
+            latitude: lat,
+            longitude: lon,
+            daily: ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum'].join(','),
+            temperature_unit: 'celsius',
+            precipitation_unit: 'mm',
+            timezone: 'auto',
+            start_date: `${startYear}-01-01`,
+            end_date: `${endYear}-12-31`
+        });
+        if (models) p.set('models', models);
+        return p;
+    };
 
-    const response = await fetch(`${ARCHIVE_API}?${params}`);
-    if (!response.ok) throw new Error('Failed to fetch historical averages');
-    const data = await response.json();
+    let data = null;
+    try {
+        const response = await fetch(`${ARCHIVE_API}?${buildParams('era5_land')}`);
+        if (response.ok) {
+            const candidate = await response.json();
+            if (hasUsableDailySeries(candidate)) data = candidate;
+        }
+    } catch (e) { /* fall through to retry without models */ }
 
-    // Aggregate by month across all years
-    const monthly = {};
-    for (let m = 0; m < 12; m++) {
-        monthly[m] = { highs: [], lows: [], precipTotals: [], rainyDays: [] };
+    if (!data) {
+        const response = await fetch(`${ARCHIVE_API}?${buildParams(null)}`);
+        if (!response.ok) throw new Error('Failed to fetch historical averages');
+        data = await response.json();
     }
 
-    // Group daily data by year-month
-    const yearMonthData = {};
-    for (let i = 0; i < data.daily.time.length; i++) {
-        const d = parseDate(data.daily.time[i]);
-        const m = d.getMonth();
-        const ym = d.getFullYear() + '-' + m;
+    return buildHistoricalIndex(data);
+}
 
-        if (!yearMonthData[ym]) yearMonthData[ym] = { highs: [], lows: [], precip: 0, rainyDays: 0 };
-        const entry = yearMonthData[ym];
-
-        const hi = data.daily.temperature_2m_max[i];
-        const lo = data.daily.temperature_2m_min[i];
-        const pr = data.daily.precipitation_sum[i] || 0;
-
-        if (hi != null) entry.highs.push(hi);
-        if (lo != null) entry.lows.push(lo);
-        entry.precip += pr;
-        if (isPrecipDay(pr)) entry.rainyDays++;
+// Group a ten-year daily series by "year-month", preserving finite values only.
+function buildHistoricalIndex(data) {
+    const idx = {};
+    const daily = data && data.daily;
+    if (!daily || !daily.time) return idx;
+    for (let i = 0; i < daily.time.length; i++) {
+        const d = parseDate(daily.time[i]);
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        const key = year + '-' + month;
+        if (!idx[key]) idx[key] = { year, month, days: [] };
+        idx[key].days.push({
+            day: d.getDate(),
+            high: finiteOrNull(daily.temperature_2m_max ? daily.temperature_2m_max[i] : null),
+            low: finiteOrNull(daily.temperature_2m_min ? daily.temperature_2m_min[i] : null),
+            precip: finiteOrNull(daily.precipitation_sum ? daily.precipitation_sum[i] : null)
+        });
     }
+    return idx;
+}
 
-    // Average across years for each month
-    for (const [ym, d] of Object.entries(yearMonthData)) {
-        const m = parseInt(ym.split('-')[1]);
-        if (d.highs.length > 0) monthly[m].highs.push(d.highs.reduce((a, b) => a + b, 0) / d.highs.length);
-        if (d.lows.length > 0) monthly[m].lows.push(d.lows.reduce((a, b) => a + b, 0) / d.lows.length);
-        monthly[m].precipTotals.push(d.precip);
-        monthly[m].rainyDays.push(d.rainyDays);
-    }
-
-    const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-
+// Complete-month ten-year averages (used by the 12 monthly cards and by
+// completed-month comparisons). Missing values are excluded, never zeroed.
+function computeMonthlyAverages(idx) {
     const result = [];
     for (let m = 0; m < 12; m++) {
+        const highs = [], lows = [], precipTotals = [], wetCounts = [];
+        for (const key of Object.keys(idx)) {
+            const bucket = idx[key];
+            if (bucket.month !== m) continue;
+            const expected = daysInMonth(bucket.year, m); // handles leap years
+            const hi = bucket.days.map(d => d.high).filter(Number.isFinite);
+            const lo = bucket.days.map(d => d.low).filter(Number.isFinite);
+            const pr = bucket.days.map(d => d.precip).filter(Number.isFinite);
+            if (adequateCoverage(hi.length, expected)) highs.push(mean(hi));
+            if (adequateCoverage(lo.length, expected)) lows.push(mean(lo));
+            if (adequateCoverage(pr.length, expected)) {
+                precipTotals.push(sum(pr));
+                wetCounts.push(pr.filter(isWetDay).length);
+            }
+        }
         result.push({
             month: m,
-            avgHigh: avg(monthly[m].highs),
-            avgLow: avg(monthly[m].lows),
-            avgPrecip: avg(monthly[m].precipTotals),
-            avgRainyDays: Math.round(avg(monthly[m].rainyDays))
+            avgHigh: highs.length ? mean(highs) : null,
+            avgLow: lows.length ? mean(lows) : null,
+            avgPrecip: precipTotals.length ? mean(precipTotals) : null,
+            avgWetDays: wetCounts.length ? mean(wetCounts) : null
         });
     }
     return result;
 }
 
+// Month-to-date ten-year averages for a given calendar month, restricted to
+// day-of-month 1..cutoffDay in each of the preceding ten complete years.
+function computeMonthToDateAverages(idx, month, cutoffDay) {
+    const highs = [], lows = [], precipTotals = [], wetCounts = [];
+    for (const key of Object.keys(idx)) {
+        const bucket = idx[key];
+        if (bucket.month !== month) continue;
+        const inRange = bucket.days.filter(d => d.day <= cutoffDay);
+        const hi = inRange.map(d => d.high).filter(Number.isFinite);
+        const lo = inRange.map(d => d.low).filter(Number.isFinite);
+        const pr = inRange.map(d => d.precip).filter(Number.isFinite);
+        if (adequateCoverage(hi.length, cutoffDay)) highs.push(mean(hi));
+        if (adequateCoverage(lo.length, cutoffDay)) lows.push(mean(lo));
+        if (adequateCoverage(pr.length, cutoffDay)) {
+            precipTotals.push(sum(pr));
+            wetCounts.push(pr.filter(isWetDay).length);
+        }
+    }
+    return {
+        month,
+        avgHigh: highs.length ? mean(highs) : null,
+        avgLow: lows.length ? mean(lows) : null,
+        avgPrecip: precipTotals.length ? mean(precipTotals) : null,
+        avgWetDays: wetCounts.length ? mean(wetCounts) : null
+    };
+}
+
 // ─── Data Merge ──────────────────────────────────────────────────────
 
-function processDailyData(apiData, forecastDates) {
+function processDailyData(apiData, forecastDates, source) {
     const days = {};
-    const daily = apiData.daily;
+    const daily = apiData && apiData.daily;
+    if (!daily || !daily.time) return days;
     for (let i = 0; i < daily.time.length; i++) {
         const dateStr = daily.time[i];
+        // Preserve missing values as null; a true zero stays zero.
         days[dateStr] = {
             date: dateStr,
-            high: daily.temperature_2m_max[i],
-            low: daily.temperature_2m_min[i],
-            precip: daily.precipitation_sum[i] || 0,
-            cloud: daily.cloud_cover_mean ? daily.cloud_cover_mean[i] : null,
-            isForecast: forecastDates ? forecastDates.has(dateStr) : false
+            high: finiteOrNull(daily.temperature_2m_max ? daily.temperature_2m_max[i] : null),
+            low: finiteOrNull(daily.temperature_2m_min ? daily.temperature_2m_min[i] : null),
+            precip: finiteOrNull(daily.precipitation_sum ? daily.precipitation_sum[i] : null),
+            cloud: finiteOrNull(daily.cloud_cover_mean ? daily.cloud_cover_mean[i] : null),
+            isForecast: forecastDates ? forecastDates.has(dateStr) : false,
+            source: source || null
         };
     }
     return days;
@@ -882,7 +1035,7 @@ function getMonthDays(year, month) {
     const result = [];
     for (let d = 1; d <= numDays; d++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        result.push(data[dateStr] || { date: dateStr, high: null, low: null, precip: null, cloud: null, isForecast: false });
+        result.push(data[dateStr] || { date: dateStr, high: null, low: null, precip: null, cloud: null, isForecast: false, source: null });
     }
     return result;
 }
@@ -890,8 +1043,8 @@ function getMonthDays(year, month) {
 // ─── Load Weather ────────────────────────────────────────────────────
 
 async function loadWeather() {
+    const loadId = ++currentLoadId;
     const { latitude: lat, longitude: lon } = currentLocation;
-    const now = new Date();
     const currentMonthEl = document.getElementById('current-month-content');
     const summaryEl = document.getElementById('current-month-summary');
     const avgEl = document.getElementById('averages-content');
@@ -900,57 +1053,71 @@ async function loadWeather() {
     if (summaryEl) summaryEl.innerHTML = '';
     if (avgEl) avgEl.innerHTML = '<div class="loading">Loading historical averages...</div>';
 
-    const titleEl = document.getElementById('current-month-title');
-    if (titleEl) titleEl.textContent = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
-
     updateLocationDisplay();
-    updateLastUpdated();
 
     try {
-        // Fetch forecast and current month's archive in parallel
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-        const yesterdayStr = fmtDate(yesterday);
+        // 1. Fetch the ordinary 7-day forecast first, to learn the location's timezone.
+        const forecastData = await fetchForecastData(lat, lon);
+        if (loadId !== currentLoadId) return;
 
-        const promises = [fetchForecastData(lat, lon)];
-        // Only fetch archive if there are past days in the current month
-        if (yesterday.getDate() >= 1 && yesterday.getMonth() === now.getMonth()) {
-            promises.push(fetchHistoricalData(lat, lon, monthStart, yesterdayStr));
-        }
+        // 2. Store the location's timezone.
+        currentLocation.timezone = forecastData.timezone || currentLocation.timezone || null;
+        saveLastLocation(currentLocation);
 
-        const results = await Promise.all(promises);
-        const forecastData = results[0];
-        const archiveData = results[1];
+        // 3. Calculate the selected location's current date and month.
+        const locNow = getLocationNow();
+        const year = locNow.getFullYear();
+        const month = locNow.getMonth();
 
-        // Process forecast
+        updateLastUpdated();
+        const titleEl = document.getElementById('current-month-title');
+        if (titleEl) titleEl.textContent = `${MONTH_NAMES[month]} ${year}`;
+
+        // Process forecast days (future dates).
         const forecastDates = new Set(forecastData.daily.time);
-        const forecastDays = processDailyData(forecastData, forecastDates);
+        const forecastDays = processDailyData(forecastData, forecastDates, 'forecast');
         mergeIntoMonthlyData(forecastDays);
 
-        // Process archive for current month
-        if (archiveData) {
-            const archiveDays = processDailyData(archiveData, null);
-            mergeIntoMonthlyData(archiveDays);
+        // 4a. Fetch recent Historical Forecast data for completed days this month.
+        const yesterday = new Date(locNow);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (yesterday.getMonth() === month && yesterday.getFullYear() === year) {
+            const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+            const yesterdayStr = fmtDate(yesterday);
+            try {
+                const { data, source } = await fetchRecentHistory(lat, lon, monthStart, yesterdayStr);
+                if (loadId !== currentLoadId) return;
+                mergeIntoMonthlyData(processDailyData(data, null, source));
+            } catch (e) {
+                console.error('Error loading recent history:', e);
+            }
         }
 
-        // Render current month
+        if (loadId !== currentLoadId) return;
+        // 5. Render current month and past-month headings using the location's date.
         renderCurrentMonth();
         renderPastMonthHeaders();
 
     } catch (err) {
         console.error('Error loading weather:', err);
-        if (currentMonthEl) currentMonthEl.innerHTML = '<div class="loading">Failed to load weather data. Please try again.</div>';
+        if (loadId === currentLoadId && currentMonthEl) {
+            currentMonthEl.innerHTML = '<div class="loading">Failed to load weather data. Please try again.</div>';
+        }
+        return;
     }
 
-    // Fetch 10-year averages in background
-    fetchHistoricalAverages(lat, lon).then(avgs => {
-        historicalAverages = avgs;
+    // 4b. Fetch ten-year baseline in the background, independent of recent history.
+    const locNowForAvg = getLocationNow();
+    fetchHistoricalAverages(lat, lon, locNowForAvg).then(idx => {
+        if (loadId !== currentLoadId) return;
+        historicalIndex = idx;
+        historicalAverages = computeMonthlyAverages(idx);
         renderHistoricalAverages();
-        // Re-render current month summary now that averages are available
+        // Re-render current month summary now that the baseline is available.
         const summaryEl2 = document.getElementById('current-month-summary');
-        if (summaryEl2) renderMonthSummary(summaryEl2, now.getFullYear(), now.getMonth());
+        if (summaryEl2) renderMonthSummary(summaryEl2, locNowForAvg.getFullYear(), locNowForAvg.getMonth());
     }).catch(err => {
+        if (loadId !== currentLoadId) return;
         console.error('Error loading averages:', err);
         if (avgEl) avgEl.innerHTML = '<div class="loading">Failed to load historical averages.</div>';
     });
@@ -967,9 +1134,8 @@ async function loadMonthData(year, month) {
     const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     try {
-        const data = await fetchHistoricalData(lat, lon, startDate, endDate);
-        const days = processDailyData(data, null);
-        mergeIntoMonthlyData(days);
+        const { data, source } = await fetchRecentHistory(lat, lon, startDate, endDate);
+        mergeIntoMonthlyData(processDailyData(data, null, source));
     } catch (err) {
         console.error(`Error loading ${key}:`, err);
     }
@@ -980,10 +1146,12 @@ async function loadMonthData(year, month) {
 function updateLastUpdated() {
     const el = document.getElementById('last-updated');
     if (!el) return;
-    const now = new Date();
+    // Retrieval time (when the app fetched data), shown in the selected
+    // location's local date/time rather than every dataset's issue time.
+    const now = getLocationNow();
     const dateStr = now.toLocaleDateString([], { month: 'short', day: 'numeric' });
     const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    el.textContent = `Updated ${dateStr}, ${timeStr}`;
+    el.textContent = `Refreshed ${dateStr}, ${timeStr}`;
 }
 
 // ─── Rendering: Calendar Grid ────────────────────────────────────────
@@ -1007,15 +1175,15 @@ function renderMonthGrid(container, year, month) {
         const hasData = day.high != null;
         const isToday = day.date === today;
         const isForecast = day.isForecast;
-        const isRainDay = isPrecipDay(day.precip);
+        const wetDay = isWetDay(day.precip);
         const anyPrecip = day.precip != null && day.precip > 0;
-        const heavyPrecip = day.precip != null && day.precip > 5;
+        const emphasizedPrecip = day.precip != null && day.precip >= EMPHASIZED_DAILY_PRECIP_MM;
 
         let cls = 'calendar-cell';
         if (!hasData) cls += ' empty-data';
         if (isToday) cls += ' today';
         if (isForecast) cls += ' forecast';
-        if (isRainDay && !isForecast) cls += heavyPrecip ? ' precip-day-heavy' : ' precip-day';
+        if (wetDay && !isForecast) cls += emphasizedPrecip ? ' precip-day-heavy' : ' precip-day';
 
         html += `<div class="${cls}">`;
         const dayNum = parseDate(day.date).getDate();
@@ -1075,24 +1243,29 @@ function renderMonthTable(container, year, month) {
     sortedDays.forEach(day => {
         const hasData = day.high != null;
         const isToday = day.date === today;
-        const isRainDay = isPrecipDay(day.precip);
+        const wetDay = isWetDay(day.precip);
         const anyPrecip = day.precip != null && day.precip > 0;
-        const heavyPrecip = day.precip != null && day.precip > 5;
+        const emphasizedPrecip = day.precip != null && day.precip >= EMPHASIZED_DAILY_PRECIP_MM;
 
         let cls = '';
         if (isToday) cls += ' today-row';
         if (day.isForecast) cls += ' forecast-row';
-        if (isRainDay && !day.isForecast) cls += heavyPrecip ? ' precip-row-heavy' : ' precip-row';
+        if (wetDay && !day.isForecast) cls += emphasizedPrecip ? ' precip-row-heavy' : ' precip-row';
 
         const d = parseDate(day.date);
         const dateLabel = `${DAY_NAMES[d.getDay()]} ${d.getDate()}`;
+
+        // Missing precipitation shows an em dash; a genuine zero shows "0".
+        const precipCell = day.precip == null
+            ? '—'
+            : (day.precip > 0 ? `<span class="precip-val">${formatPrecipValue(day.precip)}</span>` : '0');
 
         html += `<tr class="${cls.trim()}">`;
         html += `<td>${dateLabel}</td>`;
         html += `<td><span class="hi">${hasData ? formatTempValue(day.high) : '—'}</span></td>`;
         html += `<td><span class="lo">${hasData ? formatTempValue(day.low) : '—'}</span></td>`;
         html += `<td>${hasData ? formatCloudCover(day.cloud) : '—'}</td>`;
-        html += `<td>${anyPrecip ? `<span class="precip-val">${formatPrecipValue(day.precip)}</span>` : (hasData ? '0' : '—')}</td>`;
+        html += `<td>${precipCell}</td>`;
         html += '</tr>';
     });
 
@@ -1117,46 +1290,95 @@ function renderMonthTable(container, year, month) {
 
 // ─── Rendering: Month Summary ────────────────────────────────────────
 
+// Summarize a set of daily records, ignoring missing values.
+function summarizeDays(dayList) {
+    const highs = dayList.map(d => d.high).filter(Number.isFinite);
+    const lows = dayList.map(d => d.low).filter(Number.isFinite);
+    const precips = dayList.map(d => d.precip).filter(Number.isFinite);
+    return {
+        count: dayList.length,
+        avgHigh: highs.length ? mean(highs) : null,
+        avgLow: lows.length ? mean(lows) : null,
+        precipTotal: precips.length ? sum(precips) : null,
+        wetDays: precips.length ? precips.filter(isWetDay).length : null,
+        highCount: highs.length,
+        lowCount: lows.length,
+        precipCount: precips.length
+    };
+}
+
 function renderMonthSummary(container, year, month) {
+    const locNow = getLocationNow();
+    const isCurrentMonth = (year === locNow.getFullYear() && month === locNow.getMonth());
     const days = getMonthDays(year, month);
-    const withData = days.filter(d => d.high != null);
-    if (withData.length === 0) {
-        container.innerHTML = '';
-        return;
+
+    // Determine the completed (non-forecast) span to summarize.
+    let relevant, expected, cutoffDay = null;
+    if (isCurrentMonth) {
+        // Month-to-date through yesterday in the location's local time.
+        cutoffDay = locNow.getDate() - 1;
+        if (cutoffDay < 1) {
+            // No completed days yet this month: show the calendar, omit comparison.
+            container.innerHTML = '';
+            return;
+        }
+        relevant = days.filter(d => !d.isForecast && parseDate(d.date).getDate() <= cutoffDay);
+        expected = cutoffDay;
+    } else {
+        relevant = days.filter(d => !d.isForecast);
+        expected = daysInMonth(year, month);
     }
 
-    const actualDays = withData.filter(d => !d.isForecast);
-    const totalPrecip = actualDays.reduce((sum, d) => sum + (d.precip || 0), 0);
-    const rainyDays = actualDays.filter(d => isPrecipDay(d.precip)).length;
-    const avgHigh = withData.reduce((sum, d) => sum + d.high, 0) / withData.length;
-    const avgLow = withData.reduce((sum, d) => sum + d.low, 0) / withData.length;
+    const s = summarizeDays(relevant);
+    if (s.count === 0) { container.innerHTML = ''; return; }
 
-    // Get 10-year average for this month if available
-    const avg = historicalAverages ? historicalAverages.find(a => a.month === month) : null;
+    const precipOk = adequateCoverage(s.precipCount, expected);
+    const highOk = adequateCoverage(s.highCount, expected);
+    const lowOk = adequateCoverage(s.lowCount, expected);
 
-    const precipAvg = avg ? `<div class="stat-compare">${formatPrecipValue(avg.avgPrecip)}</div><div class="stat-vs">10yr avg</div>` : '';
-    const rainyAvg = avg ? `<div class="stat-compare">${avg.avgRainyDays}</div><div class="stat-vs">10yr avg</div>` : '';
-    const highAvg = avg ? `<div class="stat-compare">${formatTempValue(avg.avgHigh)}</div><div class="stat-vs">10yr avg</div>` : '';
-    const lowAvg = avg ? `<div class="stat-compare">${formatTempValue(avg.avgLow)}</div><div class="stat-vs">10yr avg</div>` : '';
+    // Compare like periods with like: month-to-date vs the same day-of-month
+    // span in prior years for the current month; complete-month averages otherwise.
+    let hist, vsLabel;
+    if (isCurrentMonth) {
+        hist = historicalIndex ? computeMonthToDateAverages(historicalIndex, month, cutoffDay) : null;
+        vsLabel = '10yr MTD avg';
+    } else {
+        hist = historicalAverages ? historicalAverages.find(a => a.month === month) : null;
+        vsLabel = '10yr avg';
+    }
+
+    const cmp = (val, fmt) => (val != null)
+        ? `<div class="stat-compare">${fmt(val)}</div><div class="stat-vs">${vsLabel}</div>`
+        : '';
+
+    const precipVal = precipOk ? formatPrecipValue(s.precipTotal) : '—';
+    const wetVal = precipOk ? String(s.wetDays) : '—';
+    const highVal = highOk ? formatTempValue(s.avgHigh) : '—';
+    const lowVal = lowOk ? formatTempValue(s.avgLow) : '—';
+
+    const precipAvg = hist ? cmp(hist.avgPrecip, formatPrecipValue) : '';
+    const wetAvg = hist ? cmp(hist.avgWetDays, v => v.toFixed(1)) : '';
+    const highAvg = hist ? cmp(hist.avgHigh, formatTempValue) : '';
+    const lowAvg = hist ? cmp(hist.avgLow, formatTempValue) : '';
 
     container.innerHTML = `
         <div class="summary-stat">
-            <div class="stat-value">${formatPrecipValue(totalPrecip)}</div>
+            <div class="stat-value">${precipVal}</div>
             <div class="stat-label">Total Precip</div>
             ${precipAvg}
         </div>
         <div class="summary-stat">
-            <div class="stat-value">${rainyDays}</div>
-            <div class="stat-label">Rainy Days</div>
-            ${rainyAvg}
+            <div class="stat-value">${wetVal}</div>
+            <div class="stat-label">Wet Days</div>
+            ${wetAvg}
         </div>
         <div class="summary-stat">
-            <div class="stat-value">${formatTempValue(avgHigh)}</div>
+            <div class="stat-value">${highVal}</div>
             <div class="stat-label">Avg High</div>
             ${highAvg}
         </div>
         <div class="summary-stat">
-            <div class="stat-value">${formatTempValue(avgLow)}</div>
+            <div class="stat-value">${lowVal}</div>
             <div class="stat-label">Avg Low</div>
             ${lowAvg}
         </div>
@@ -1181,7 +1403,7 @@ function toggleCurrentMonth() {
 }
 
 function renderCurrentMonth() {
-    const now = new Date();
+    const now = getLocationNow();
     const year = now.getFullYear();
     const month = now.getMonth();
     const container = document.getElementById('current-month-content');
@@ -1201,7 +1423,7 @@ function renderCurrentMonth() {
 // ─── Past Months ─────────────────────────────────────────────────────
 
 function getPastMonths() {
-    const now = new Date();
+    const now = getLocationNow();
     const months = [];
     for (let i = 1; i <= 6; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -1282,12 +1504,13 @@ function renderHistoricalAverages() {
 
     let html = '<div class="averages-grid">';
     historicalAverages.forEach(m => {
+        const wetDays = m.avgWetDays != null ? m.avgWetDays.toFixed(1) : '—';
         html += `<div class="avg-card">
             <div class="avg-month">${MONTH_NAMES[m.month]}</div>
             <div class="avg-row"><span class="avg-label">Avg High</span><span class="avg-value hi">${formatTempValue(m.avgHigh)}</span></div>
             <div class="avg-row"><span class="avg-label">Avg Low</span><span class="avg-value lo">${formatTempValue(m.avgLow)}</span></div>
             <div class="avg-row"><span class="avg-label">Precip</span><span class="avg-value precip">${formatPrecipValue(m.avgPrecip)}</span></div>
-            <div class="avg-row"><span class="avg-label">Rainy Days</span><span class="avg-value">${m.avgRainyDays}</span></div>
+            <div class="avg-row"><span class="avg-label">Wet Days</span><span class="avg-value">${wetDays}</span></div>
         </div>`;
     });
     html += '</div>';
@@ -1311,12 +1534,23 @@ function rerenderAll() {
 
 // ─── CSV Export ──────────────────────────────────────────────────────
 
+// Human-readable data-source label for CSV export. Historical rows are never
+// labeled "Observed" or "Recorded".
+function csvDataType(source) {
+    switch (source) {
+        case 'forecast': return 'Forecast';
+        case 'historical-forecast': return 'Recent modeled history';
+        case 'historical-weather-fallback': return 'Historical-weather fallback';
+        default: return '';
+    }
+}
+
 function exportCSV() {
     const unit = getTempUnit();
     const tLabel = unit === 'C' ? '°C' : '°F';
     const pLabel = unit === 'C' ? 'mm' : 'in';
 
-    const headers = ['Date', 'Day', `High (${tLabel})`, `Low (${tLabel})`, 'Cloud Cover (%)', `Precipitation (${pLabel})`];
+    const headers = ['Date', 'Day', `High (${tLabel})`, `Low (${tLabel})`, 'Cloud Cover (%)', `Precipitation (${pLabel})`, 'Data Type'];
     const rows = [headers.join(',')];
 
     // Collect all loaded months sorted chronologically
@@ -1332,7 +1566,7 @@ function exportCSV() {
             const lo = formatTempRaw(d.low) ?? '';
             const cloud = d.cloud != null ? Math.round(d.cloud) : '';
             const precip = d.precip != null ? formatPrecipRaw(d.precip) : '';
-            rows.push([dateStr, day, hi, lo, cloud, precip].join(','));
+            rows.push([dateStr, day, hi, lo, cloud, precip, csvDataType(d.source)].join(','));
         });
     });
 
@@ -1469,6 +1703,7 @@ function initEventListeners() {
         btn.classList.add('spinning');
         monthlyData = {};
         historicalAverages = null;
+        historicalIndex = null;
         expandedMonths = {};
         loadWeather().finally(() => btn.classList.remove('spinning'));
     });
